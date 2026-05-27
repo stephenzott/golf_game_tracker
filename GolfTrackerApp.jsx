@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 // Icons from lucide-react used throughout the UI
-import { TrendingUp, Wind, Mountain, Plus, Trash2, Target, LogOut } from 'lucide-react';
+import { TrendingUp, Plus, Trash2, Target, LogOut, MapPin } from 'lucide-react';
+import ShotTracker from './src/ShotTracker.jsx';
 import { signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, googleProvider, db } from './src/firebase.js';
@@ -270,7 +271,8 @@ const GolfTrackerApp = () => {
         }}>
           {[
             { id: 'log', label: 'Log Distances', icon: TrendingUp },
-            { id: 'select', label: 'Select Club', icon: Target }
+            { id: 'select', label: 'Select Club', icon: Target },
+            { id: 'track', label: 'Track Shot', icon: MapPin },
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -678,7 +680,21 @@ const GolfTrackerApp = () => {
             )}
           </div>
         )}
+
+        {/* Track Shot Tab — renders outside the padded content div below */}
       </div>
+
+      {activeTab === 'track' && (
+        <ShotTracker
+          clubs={clubs}
+          onLogDistance={(club, yards) =>
+            setDistances(prev => ({
+              ...prev,
+              [club]: [...(prev[club] || []), yards],
+            }))
+          }
+        />
+      )}
 
       <style>{`
         @keyframes fadeIn {
