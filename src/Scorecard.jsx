@@ -65,6 +65,7 @@ const Stepper = ({ value, onChange, min = 0, max = 15, size = 52 }) => (
 const makeHole = (i) => ({
   hole: i + 1,
   par: 4,
+  yards: null,
   score: null,
   fairway: null,
   gir: null,
@@ -231,7 +232,7 @@ const Scorecard = ({ user, db }) => {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '360px' }}>
             <thead>
               <tr>
-                {['#', 'Par', 'Score', 'FIR', 'GIR', 'Putts', 'Haz', 'Bkr'].map(h => (
+                {['#', 'Par', 'Yds', 'Score', 'FIR', 'GIR', 'Putts', 'Haz', 'Bkr'].map(h => (
                   <th key={h} style={{ padding: '4px 6px', color: '#bbb', fontWeight: '700', textAlign: 'center', fontSize: '11px' }}>{h}</th>
                 ))}
               </tr>
@@ -241,6 +242,7 @@ const Scorecard = ({ user, db }) => {
                 <tr key={h.hole} style={{ borderTop: '1px solid #f5f5f5' }}>
                   <td style={{ padding: '6px', textAlign: 'center', fontWeight: '700', color: '#666', fontSize: '12px' }}>{h.hole}</td>
                   <td style={{ padding: '6px', textAlign: 'center', color: '#aaa' }}>{h.par}</td>
+                  <td style={{ padding: '6px', textAlign: 'center', color: '#888', fontSize: '11px' }}>{h.yards ?? '—'}</td>
                   <td style={{ padding: '6px', textAlign: 'center' }}>
                     <ScoreCircle score={h.score} par={h.par} size={22} />
                   </td>
@@ -406,6 +408,23 @@ const Scorecard = ({ user, db }) => {
               >{p}</button>
             ))}
           </div>
+        </div>
+
+        {/* Hole yardage */}
+        <div style={{ background: 'white', borderRadius: '12px', padding: '14px 16px', marginBottom: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>HOLE DISTANCE (yds)</p>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={hole.yards ?? ''}
+            onChange={e => updateHole('yards', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+            placeholder="e.g. 385"
+            style={{
+              width: '100%', padding: '14px 12px', fontSize: '24px', fontWeight: '700',
+              border: '1px solid #e8e8e8', borderRadius: '8px', boxSizing: 'border-box',
+              fontFamily: 'inherit', color: '#1a5f3d', textAlign: 'center',
+            }}
+          />
         </div>
 
         {/* Score */}
