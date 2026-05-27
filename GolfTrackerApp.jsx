@@ -25,6 +25,7 @@ const GolfTrackerApp = () => {
   // loading: true while auth state is being determined on startup
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
+  const [shotType, setShotType] = useState('course'); // 'course' | 'range'
   // Prevents saving back to Firestore immediately after loading data from it
   const justLoaded = useRef(false);
 
@@ -49,7 +50,15 @@ const GolfTrackerApp = () => {
           const snap = await getDoc(docRef);
           if (snap.exists()) {
             justLoaded.current = true;
-            setDistances(snap.data().distances || {});
+            // Normalize legacy plain-number entries to { value, type } objects
+            const raw = snap.data().distances || {};
+            const normalized = Object.fromEntries(
+              Object.entries(raw).map(([club, shots]) => [
+                club,
+                shots.map(s => (typeof s === 'number' ? { value: s, type: 'course' } : s)),
+              ])
+            );
+            setDistances(normalized);
           }
         } else {
           setDistances({});
@@ -91,16 +100,19 @@ const GolfTrackerApp = () => {
   // Treating the baseline as 5 virtual shots — real data overtakes it after ~10 logged shots
   const BASE_WEIGHT = 5;
 
-  // Blends the baseline with the user's logged average, weighted by shot count.
-  // Returns { blended, userShots } so callers know how much real data is behind the number.
+  // Blends the baseline with the user's logged average.
+  // Range shots count as 1/10th of a course shot so they influence the average
+  // without overwhelming a small number of real on-course readings.
   const getBlendedDistance = (club) => {
     const base = BASE_DISTANCES[club];
     const shots = distances[club] || [];
-    const userCount = shots.length;
-    if (userCount === 0) return { blended: base, userShots: 0 };
-    const userAvg = shots.reduce((a, b) => a + b, 0) / userCount;
-    const blended = (base * BASE_WEIGHT + userAvg * userCount) / (BASE_WEIGHT + userCount);
-    return { blended, userShots: userCount };
+    if (shots.length === 0) return { blended: base, userShots: 0 };
+    const RANGE_WEIGHT = 0.1;
+    const effectiveWeight = shots.reduce((w, s) => w + (s.type === 'range' ? RANGE_WEIGHT : 1), 0);
+    const weightedSum = shots.reduce((sum, s) => sum + s.value * (s.type === 'range' ? RANGE_WEIGHT : 1), 0);
+    const userAvg = weightedSum / effectiveWeight;
+    const blended = (base * BASE_WEIGHT + userAvg * effectiveWeight) / (BASE_WEIGHT + effectiveWeight);
+    return { blended, userShots: shots.length };
   };
 
   // Appends a new yardage entry for the selected club, then clears the input
@@ -118,7 +130,7 @@ const GolfTrackerApp = () => {
 
     setDistances(prev => ({
       ...prev,
-      [selectedClub]: [...(prev[selectedClub] || []), numDistance]
+      [selectedClub]: [...(prev[selectedClub] || []), { value: numDistance, type: shotType }]
     }));
 
     setDistance('');
@@ -132,10 +144,9 @@ const GolfTrackerApp = () => {
     }));
   };
 
-  // Returns the mean yardage for a club, rounded to one decimal place
   const getAverageDistance = (club) => {
     if (!distances[club] || distances[club].length === 0) return 0;
-    const sum = distances[club].reduce((a, b) => a + b, 0);
+    const sum = distances[club].reduce((a, s) => a + s.value, 0);
     return (sum / distances[club].length).toFixed(1);
   };
 
@@ -369,6 +380,25 @@ const GolfTrackerApp = () => {
                 </div>
               </div>
 
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+                {[
+                  { id: 'course', label: '⛳ Course' },
+                  { id: 'range', label: '🏌️ Range' },
+                ].map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => setShotType(t.id)}
+                    style={{
+                      padding: '10px',
+                      background: shotType === t.id ? '#1a5f3d' : '#f5f5f5',
+                      color: shotType === t.id ? 'white' : '#888',
+                      border: 'none', borderRadius: '6px',
+                      fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+                    }}
+                  >{t.label}</button>
+                ))}
+              </div>
+
               <button
                 onClick={handleAddDistance}
                 style={{
@@ -439,7 +469,12 @@ const GolfTrackerApp = () => {
                         background: '#f5f5f5',
                         borderRadius: '4px'
                       }}>
-                        <span>{dist} yds</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {dist.value} yds
+                          {dist.type === 'range' && (
+                            <span style={{ fontSize: '10px', color: '#888', background: '#e8e8e8', padding: '1px 6px', borderRadius: '10px' }}>Range</span>
+                          )}
+                        </span>
                         <button
                           onClick={() => handleDeleteDistance(club, idx)}
                           style={{
@@ -695,7 +730,7 @@ const GolfTrackerApp = () => {
           onLogDistance={(club, yards) =>
             setDistances(prev => ({
               ...prev,
-              [club]: [...(prev[club] || []), yards],
+              [club]: [...(prev[club] || []), { value: yards, type: 'course' }],
             }))
           }
         />
