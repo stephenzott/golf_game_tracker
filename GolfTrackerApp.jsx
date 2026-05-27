@@ -75,8 +75,31 @@ const GolfTrackerApp = () => {
   const handleSignIn = () => signInWithRedirect(auth, googleProvider);
   const handleSignOut = () => signOut(auth);
 
-  // Full ordered list of clubs available for logging and recommendations
-  const clubs = ['Driver', '3 Wood', '5 Wood', '2 Iron', '3 Iron', '4 Iron', '5 Iron', '6 Iron', '7 Iron', '8 Iron', '9 Iron', 'PW', 'GW', 'SW', 'LW'];
+  // Full ordered list of clubs in the bag
+  const clubs = ['Driver', '3 Wood', '3 Hybrid', '4 Iron', '5 Iron', '6 Iron', '7 Iron', '8 Iron', '9 Iron', 'PW', 'GW', 'SW'];
+
+  // User-provided baseline distances (yards) used as a starting prior
+  const BASE_DISTANCES = {
+    'Driver': 280, '3 Wood': 240, '3 Hybrid': 220,
+    '4 Iron': 200, '5 Iron': 185, '6 Iron': 175,
+    '7 Iron': 165, '8 Iron': 150, '9 Iron': 135,
+    'PW': 120, 'GW': 110, 'SW': 95,
+  };
+
+  // Treating the baseline as 5 virtual shots — real data overtakes it after ~10 logged shots
+  const BASE_WEIGHT = 5;
+
+  // Blends the baseline with the user's logged average, weighted by shot count.
+  // Returns { blended, userShots } so callers know how much real data is behind the number.
+  const getBlendedDistance = (club) => {
+    const base = BASE_DISTANCES[club];
+    const shots = distances[club] || [];
+    const userCount = shots.length;
+    if (userCount === 0) return { blended: base, userShots: 0 };
+    const userAvg = shots.reduce((a, b) => a + b, 0) / userCount;
+    const blended = (base * BASE_WEIGHT + userAvg * userCount) / (BASE_WEIGHT + userCount);
+    return { blended, userShots: userCount };
+  };
 
   // Appends a new yardage entry for the selected club, then clears the input
   const handleAddDistance = () => {
@@ -119,24 +142,17 @@ const GolfTrackerApp = () => {
     let bestClub = null;
     let closestDiff = Infinity;
 
-    // Walk all clubs and pick the one whose average is closest to the target
+    // Walk all clubs and pick the one whose blended distance is closest to the target
     clubs.forEach(club => {
-      const avgDist = parseFloat(getAverageDistance(club));
-      if (avgDist > 0) {
-        const diff = Math.abs(avgDist - targetDistance);
-        if (diff < closestDiff) {
-          closestDiff = diff;
-          bestClub = { name: club, avgDist };
-        }
+      const { blended, userShots } = getBlendedDistance(club);
+      const diff = Math.abs(blended - targetDistance);
+      if (diff < closestDiff) {
+        closestDiff = diff;
+        bestClub = { name: club, blended, userShots };
       }
     });
 
-    if (!bestClub) {
-      setRecommendation({ error: 'No distance data logged yet. Log some distances first!' });
-      return;
-    }
-
-    let adjustedDistance = bestClub.avgDist;
+    let adjustedDistance = bestClub.blended;
     let adjustmentNotes = [];
 
     // Headwind costs ~2 yards per mph; tailwind gains ~1.5 yards per mph
@@ -150,18 +166,19 @@ const GolfTrackerApp = () => {
     // Elevation changes distance by ~10% per 100 feet of rise/drop
     if (elevation !== 0) {
       const elevationFactor = 0.1;
-      const elevationAdjustment = (Math.abs(elevation) / 100) * elevationFactor * bestClub.avgDist;
+      const elevationAdjustment = (Math.abs(elevation) / 100) * elevationFactor * bestClub.blended;
       adjustedDistance = elevation > 0 ? adjustedDistance - elevationAdjustment : adjustedDistance + elevationAdjustment;
       adjustmentNotes.push(`${elevation > 0 ? 'Uphill' : 'Downhill'}: ${Math.abs(elevation)} ft`);
     }
 
-    // Confidence (accuracy) reflects how closely the best club's average matched the target
+    // Confidence (accuracy) reflects how closely the best club's blended distance matched the target
     setRecommendation({
       club: bestClub.name,
-      baseDistance: bestClub.avgDist,
+      baseDistance: bestClub.blended.toFixed(1),
+      userShots: bestClub.userShots,
       adjustedDistance: adjustedDistance.toFixed(1),
       adjustmentNotes,
-      accuracy: (100 - (closestDiff / bestClub.avgDist * 100)).toFixed(0)
+      accuracy: (100 - (closestDiff / bestClub.blended * 100)).toFixed(0)
     });
   };
 
@@ -591,7 +608,12 @@ const GolfTrackerApp = () => {
                         {recommendation.club}
                       </div>
                       <p style={{ margin: '0', fontSize: '15px', color: '#666' }}>
-                        Base distance: <strong>{recommendation.baseDistance} yards</strong>
+                        Est. distance: <strong>{recommendation.baseDistance} yards</strong>
+                      </p>
+                      <p style={{ margin: '6px 0 0 0', fontSize: '12px', color: '#aaa' }}>
+                        {recommendation.userShots === 0
+                          ? 'Based on your baseline — log shots to personalize'
+                          : `Based on ${recommendation.userShots} logged shot${recommendation.userShots !== 1 ? 's' : ''} + baseline`}
                       </p>
                     </div>
 
