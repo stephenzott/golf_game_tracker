@@ -1,0 +1,39 @@
+/* Reset and mobile-first base styles */
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* Prevent text size adjustment when rotating on iOS */
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Make range inputs easier to tap on mobile */
+input[type="range"] {
+  height: 28px;
+  cursor: pointer;
+  accent-color: #1a5f3d;
+}
+
+/* Larger tap targets for buttons */
+button {
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+/* Number inputs — hide spinners on mobile */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
