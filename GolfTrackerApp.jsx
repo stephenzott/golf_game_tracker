@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 // Icons from lucide-react used throughout the UI
-import { TrendingUp, Plus, Trash2, Target, LogOut, MapPin } from 'lucide-react';
+import { TrendingUp, Plus, Trash2, Target, LogOut, MapPin, Flag } from 'lucide-react';
 import ShotTracker from './src/ShotTracker.jsx';
+import Scorecard from './src/Scorecard.jsx';
 import { signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, googleProvider, db } from './src/firebase.js';
@@ -265,14 +266,16 @@ const GolfTrackerApp = () => {
         {/* Tab Navigation */}
         <div style={{
           display: 'flex',
-          gap: '8px',
+          gap: '4px',
           marginBottom: '32px',
-          borderBottom: '1px solid rgba(26, 26, 26, 0.1)'
+          borderBottom: '1px solid rgba(26, 26, 26, 0.1)',
+          overflowX: 'auto',
         }}>
           {[
-            { id: 'log', label: 'Log Distances', icon: TrendingUp },
-            { id: 'select', label: 'Select Club', icon: Target },
-            { id: 'track', label: 'Track Shot', icon: MapPin },
+            { id: 'log', label: 'Log', icon: TrendingUp },
+            { id: 'select', label: 'Club', icon: Target },
+            { id: 'track', label: 'Track', icon: MapPin },
+            { id: 'score', label: 'Score', icon: Flag },
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -280,19 +283,21 @@ const GolfTrackerApp = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 style={{
-                  padding: '12px 20px',
+                  padding: '12px 12px',
                   background: 'none',
                   border: 'none',
-                  fontSize: '15px',
+                  fontSize: '14px',
                   fontWeight: activeTab === tab.id ? '600' : '400',
                   color: activeTab === tab.id ? '#1a5f3d' : '#888',
                   cursor: 'pointer',
                   borderBottom: activeTab === tab.id ? '2px solid #1a5f3d' : 'none',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
+                  gap: '6px',
                   transition: 'all 0.3s ease',
-                  marginBottom: '-1px'
+                  marginBottom: '-1px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}
               >
                 <Icon size={18} strokeWidth={1.5} />
@@ -694,6 +699,10 @@ const GolfTrackerApp = () => {
             }))
           }
         />
+      )}
+
+      {activeTab === 'score' && (
+        <Scorecard user={user} db={db} />
       )}
 
       <style>{`
