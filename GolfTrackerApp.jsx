@@ -1,11 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 // Icons from lucide-react used throughout the UI
-import { TrendingUp, Plus, Trash2, Target, LogOut, MapPin, Flag } from 'lucide-react';
+import { TrendingUp, Plus, Trash2, Target, LogOut, MapPin, Flag, Briefcase } from 'lucide-react';
 import ShotTracker from './src/ShotTracker.jsx';
 import Scorecard from './src/Scorecard.jsx';
 import { signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, googleProvider, db } from './src/firebase.js';
+
+const DEFAULT_BASE_DISTANCES = {
+  'Driver': 280, '3 Wood': 240, '3 Hybrid': 220,
+  '4 Iron': 200, '5 Iron': 185, '6 Iron': 175,
+  '7 Iron': 165, '8 Iron': 150, '9 Iron': 135,
+  'PW': 120, 'GW': 110, 'SW': 95,
+};
 
 const GolfTrackerApp = () => {
   // distances: object keyed by club name, each value is an array of logged yardages
@@ -26,6 +33,9 @@ const GolfTrackerApp = () => {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [shotType, setShotType] = useState('course'); // 'course' | 'range'
+  const [baseDistances, setBaseDistances] = useState({});
+  const [bagInputs, setBagInputs] = useState({});
+  const [editingBag, setEditingBag] = useState(false);
   // Prevents saving back to Firestore immediately after loading data from it
   const justLoaded = useRef(false);
 
@@ -59,9 +69,12 @@ const GolfTrackerApp = () => {
               ])
             );
             setDistances(normalized);
+            const loadedBase = snap.data().baseDistances || {};
+            setBaseDistances(loadedBase);
           }
         } else {
           setDistances({});
+          setBaseDistances(DEFAULT_BASE_DISTANCES);
         }
         setLoading(false);
       });
@@ -71,7 +84,7 @@ const GolfTrackerApp = () => {
     return () => unsubscribe();
   }, []);
 
-  // Whenever distances change, save to Firestore (skips the initial load to avoid a redundant write)
+  // Whenever distances or baseDistances change, save to Firestore (skips the initial load to avoid a redundant write)
   useEffect(() => {
     if (!user) return;
     if (justLoaded.current) {
@@ -79,8 +92,8 @@ const GolfTrackerApp = () => {
       return;
     }
     const docRef = doc(db, 'users', user.uid);
-    setDoc(docRef, { distances });
-  }, [distances, user]);
+    setDoc(docRef, { distances, baseDistances });
+  }, [distances, baseDistances, user]);
 
   // Redirect to Google sign-in (works on mobile; popups are often blocked)
   const handleSignIn = () => signInWithRedirect(auth, googleProvider);
@@ -89,14 +102,6 @@ const GolfTrackerApp = () => {
   // Full ordered list of clubs in the bag
   const clubs = ['Driver', '3 Wood', '3 Hybrid', '4 Iron', '5 Iron', '6 Iron', '7 Iron', '8 Iron', '9 Iron', 'PW', 'GW', 'SW'];
 
-  // User-provided baseline distances (yards) used as a starting prior
-  const BASE_DISTANCES = {
-    'Driver': 280, '3 Wood': 240, '3 Hybrid': 220,
-    '4 Iron': 200, '5 Iron': 185, '6 Iron': 175,
-    '7 Iron': 165, '8 Iron': 150, '9 Iron': 135,
-    'PW': 120, 'GW': 110, 'SW': 95,
-  };
-
   // Treating the baseline as 5 virtual shots — real data overtakes it after ~10 logged shots
   const BASE_WEIGHT = 5;
 
@@ -104,7 +109,7 @@ const GolfTrackerApp = () => {
   // Range shots count as 1/10th of a course shot so they influence the average
   // without overwhelming a small number of real on-course readings.
   const getBlendedDistance = (club) => {
-    const base = BASE_DISTANCES[club];
+    const base = baseDistances[club] ?? DEFAULT_BASE_DISTANCES[club] ?? 0;
     const shots = distances[club] || [];
     if (shots.length === 0) return { blended: base, userShots: 0 };
     const RANGE_WEIGHT = 0.1;
@@ -113,6 +118,27 @@ const GolfTrackerApp = () => {
     const userAvg = weightedSum / effectiveWeight;
     const blended = (base * BASE_WEIGHT + userAvg * effectiveWeight) / (BASE_WEIGHT + effectiveWeight);
     return { blended, userShots: shots.length };
+  };
+
+  const handleEditBag = () => {
+    const initial = {};
+    clubs.forEach(club => {
+      initial[club] = String(baseDistances[club] ?? DEFAULT_BASE_DISTANCES[club]);
+    });
+    setBagInputs(initial);
+    setEditingBag(true);
+  };
+
+  const handleSaveBaseDistances = () => {
+    const updated = {};
+    clubs.forEach(club => {
+      const val = parseFloat(bagInputs[club]);
+      if (!isNaN(val) && val > 0) updated[club] = val;
+      else if (baseDistances[club]) updated[club] = baseDistances[club];
+    });
+    setBaseDistances(updated);
+    setBagInputs({});
+    setEditingBag(false);
   };
 
   // Appends a new yardage entry for the selected club, then clears the input
@@ -287,6 +313,7 @@ const GolfTrackerApp = () => {
             { id: 'select', label: 'Club', icon: Target },
             { id: 'track', label: 'Track', icon: MapPin },
             { id: 'score', label: 'Score', icon: Flag },
+            { id: 'bag', label: 'Bag', icon: Briefcase },
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -718,6 +745,117 @@ const GolfTrackerApp = () => {
                 <p style={{ fontSize: '13px', margin: '0', color: '#bbb' }}>Adjust wind and elevation for more accuracy.</p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* My Bag Tab */}
+        {activeTab === 'bag' && (
+          <div style={{ animation: 'fadeIn 0.3s ease' }}>
+            <div style={{
+              background: 'white',
+              borderRadius: '12px',
+              padding: '28px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+            }}>
+              {/* Header row */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>My Bag</h2>
+                {editingBag ? (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => { setBagInputs({}); setEditingBag(false); }}
+                      style={{ padding: '8px 14px', background: 'none', border: '1px solid #ddd', borderRadius: '6px', fontSize: '13px', fontWeight: '600', color: '#888', cursor: 'pointer' }}
+                    >Cancel</button>
+                    <button
+                      onClick={handleSaveBaseDistances}
+                      style={{ padding: '8px 14px', background: '#1a5f3d', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '600', color: 'white', cursor: 'pointer' }}
+                    >Save</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleEditBag}
+                    style={{ padding: '8px 14px', background: 'none', border: '1px solid #1a5f3d', borderRadius: '6px', fontSize: '13px', fontWeight: '600', color: '#1a5f3d', cursor: 'pointer' }}
+                  >
+                    {Object.keys(baseDistances).length > 0 ? 'Update Base Distances' : 'Add Base Distances'}
+                  </button>
+                )}
+              </div>
+
+              {/* Column header */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 100px',
+                gap: '8px',
+                padding: '0 12px 8px',
+                fontSize: '11px',
+                fontWeight: '600',
+                color: '#bbb',
+                letterSpacing: '0.5px',
+              }}>
+                <span>CLUB</span>
+                <span style={{ textAlign: 'center' }}>{editingBag ? 'BASE DISTANCE' : 'CURRENT'}</span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {clubs.map((club, idx) => {
+                  const { blended, userShots } = getBlendedDistance(club);
+                  const hasData = (club in baseDistances) || userShots > 0;
+                  const displayValue = hasData ? Math.round(blended) : 0;
+                  return (
+                    <div
+                      key={club}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 100px',
+                        gap: '8px',
+                        alignItems: 'center',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        background: idx % 2 === 0 ? '#fafafa' : 'white',
+                      }}
+                    >
+                      <span style={{ fontSize: '14px', fontWeight: '500' }}>{club}</span>
+                      {editingBag ? (
+                        <input
+                          type="number"
+                          value={bagInputs[club] ?? ''}
+                          onChange={(e) => setBagInputs(prev => ({ ...prev, [club]: e.target.value }))}
+                          style={{
+                            width: '100%',
+                            padding: '6px 8px',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            border: '1px solid #ddd',
+                            borderRadius: '6px',
+                            textAlign: 'center',
+                            fontFamily: 'inherit',
+                            boxSizing: 'border-box',
+                            color: '#1a1a1a',
+                          }}
+                        />
+                      ) : (
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '16px', fontWeight: '700', color: hasData ? '#1a5f3d' : '#ccc' }}>
+                            {displayValue}
+                          </div>
+                          {userShots > 0 && (
+                            <div style={{ fontSize: '10px', color: '#bbb' }}>
+                              {userShots} shot{userShots !== 1 ? 's' : ''}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {!editingBag && Object.keys(baseDistances).length === 0 && Object.keys(distances).length === 0 && (
+                <p style={{ margin: '20px 0 0 0', fontSize: '12px', color: '#bbb', textAlign: 'center' }}>
+                  Use "Add Base Distances" to set your starting yardages for each club.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
