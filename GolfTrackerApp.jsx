@@ -136,8 +136,11 @@ const GolfTrackerApp = () => {
   const handleSignIn = () => signInWithRedirect(auth, googleProvider);
   const handleSignOut = () => signOut(auth);
 
-  // Derived from bagSlots — only slots with a name are active clubs
-  const clubs = bagSlots.map(s => s.name).filter(Boolean);
+  // Derived from bagSlots — only slots with a name are active clubs, sorted by base distance desc
+  const clubs = bagSlots
+    .filter(s => s.name)
+    .sort((a, b) => (parseFloat(b.distance) || 0) - (parseFloat(a.distance) || 0))
+    .map(s => s.name);
   const baseDistances = Object.fromEntries(
     bagSlots
       .filter(s => s.name && parseFloat(s.distance) > 0)
