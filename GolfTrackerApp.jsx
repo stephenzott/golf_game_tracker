@@ -1,18 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 // Icons from lucide-react used throughout the UI
-import { TrendingUp, Plus, Trash2, Target, LogOut, MapPin, Flag, Briefcase } from 'lucide-react';
+import { TrendingUp, Plus, Trash2, Target, LogOut, MapPin, Flag } from 'lucide-react';
 import ShotTracker from './src/ShotTracker.jsx';
 import Scorecard from './src/Scorecard.jsx';
 import { signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, googleProvider, db } from './src/firebase.js';
 
-const DEFAULT_BASE_DISTANCES = {
-  'Driver': 280, '3 Wood': 240, '3 Hybrid': 220,
-  '4 Iron': 200, '5 Iron': 185, '6 Iron': 175,
-  '7 Iron': 165, '8 Iron': 150, '9 Iron': 135,
-  'PW': 120, 'GW': 110, 'SW': 95,
-};
+const EMPTY_SLOT = () => ({ name: '', distance: '' });
+
+const GolfBagIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 11h12l-1.5 10H7.5L6 11z" />
+    <line x1="9.5" y1="11" x2="8.5" y2="4" />
+    <line x1="12" y1="11" x2="12" y2="3" />
+    <line x1="14.5" y1="11" x2="15.5" y2="4" />
+    <path d="M18 13c2.5 0 3.5 1.5 3.5 3.5" />
+    <path d="M8 17q3.5 1.5 8 0" />
+  </svg>
+);
 
 const GolfTrackerApp = () => {
   // distances: object keyed by club name, each value is an array of logged yardages
@@ -33,8 +39,8 @@ const GolfTrackerApp = () => {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [shotType, setShotType] = useState('course'); // 'course' | 'range'
-  const [baseDistances, setBaseDistances] = useState({});
-  const [bagInputs, setBagInputs] = useState({});
+  const [bagSlots, setBagSlots] = useState(Array.from({ length: 13 }, EMPTY_SLOT));
+  const [bagEditSlots, setBagEditSlots] = useState([]);
   const [editingBag, setEditingBag] = useState(false);
   // Stays false until the initial Firestore load completes, preventing saves
   // triggered by setUser() firing before getDoc() resolves
@@ -70,15 +76,30 @@ const GolfTrackerApp = () => {
               ])
             );
             setDistances(normalized);
-            const loadedBase = snap.data().baseDistances || {};
-            setBaseDistances(loadedBase);
+
+            if (snap.data().bag) {
+              const loaded = snap.data().bag.map(s => ({
+                name: s.name || '',
+                distance: s.distance != null ? String(s.distance) : '',
+              }));
+              // Pad to 13 slots if the stored array is shorter
+              while (loaded.length < 13) loaded.push(EMPTY_SLOT());
+              setBagSlots(loaded);
+            } else if (snap.data().baseDistances) {
+              // Migrate old baseDistances format into bagSlots
+              const old = snap.data().baseDistances;
+              const slots = Object.entries(old).map(([name, distance]) => ({
+                name,
+                distance: String(distance),
+              }));
+              while (slots.length < 13) slots.push(EMPTY_SLOT());
+              setBagSlots(slots);
+            }
           } else {
             setDistances({});
-            setBaseDistances({});
           }
         } else {
           setDistances({});
-          setBaseDistances({});
         }
         setLoading(false);
         saveEnabled.current = true;
@@ -92,15 +113,24 @@ const GolfTrackerApp = () => {
   useEffect(() => {
     if (!user || !saveEnabled.current) return;
     const docRef = doc(db, 'users', user.uid);
-    setDoc(docRef, { distances, baseDistances });
-  }, [distances, baseDistances, user]);
+    const bag = bagSlots.map(s => ({
+      name: s.name,
+      distance: parseFloat(s.distance) || null,
+    }));
+    setDoc(docRef, { distances, bag });
+  }, [distances, bagSlots, user]);
 
   // Redirect to Google sign-in (works on mobile; popups are often blocked)
   const handleSignIn = () => signInWithRedirect(auth, googleProvider);
   const handleSignOut = () => signOut(auth);
 
-  // Full ordered list of clubs in the bag
-  const clubs = ['Driver', '3 Wood', '3 Hybrid', '4 Iron', '5 Iron', '6 Iron', '7 Iron', '8 Iron', '9 Iron', 'PW', 'GW', 'SW'];
+  // Derived from bagSlots — only slots with a name are active clubs
+  const clubs = bagSlots.map(s => s.name).filter(Boolean);
+  const baseDistances = Object.fromEntries(
+    bagSlots
+      .filter(s => s.name && parseFloat(s.distance) > 0)
+      .map(s => [s.name, parseFloat(s.distance)])
+  );
 
   // Treating the baseline as 5 virtual shots — real data overtakes it after ~10 logged shots
   const BASE_WEIGHT = 5;
@@ -109,7 +139,7 @@ const GolfTrackerApp = () => {
   // Range shots count as 1/10th of a course shot so they influence the average
   // without overwhelming a small number of real on-course readings.
   const getBlendedDistance = (club) => {
-    const base = baseDistances[club] ?? DEFAULT_BASE_DISTANCES[club] ?? 0;
+    const base = baseDistances[club] ?? 0;
     const shots = distances[club] || [];
     if (shots.length === 0) return { blended: base, userShots: 0 };
     const RANGE_WEIGHT = 0.1;
@@ -121,23 +151,13 @@ const GolfTrackerApp = () => {
   };
 
   const handleEditBag = () => {
-    const initial = {};
-    clubs.forEach(club => {
-      initial[club] = String(baseDistances[club] ?? DEFAULT_BASE_DISTANCES[club]);
-    });
-    setBagInputs(initial);
+    setBagEditSlots(bagSlots.map(s => ({ ...s })));
     setEditingBag(true);
   };
 
-  const handleSaveBaseDistances = () => {
-    const updated = {};
-    clubs.forEach(club => {
-      const val = parseFloat(bagInputs[club]);
-      if (!isNaN(val) && val > 0) updated[club] = val;
-      else if (baseDistances[club]) updated[club] = baseDistances[club];
-    });
-    setBaseDistances(updated);
-    setBagInputs({});
+  const handleSaveBag = () => {
+    setBagSlots(bagEditSlots.map(s => ({ ...s })));
+    setBagEditSlots([]);
     setEditingBag(false);
   };
 
@@ -316,7 +336,7 @@ const GolfTrackerApp = () => {
             { id: 'select', label: 'Club', icon: Target },
             { id: 'track', label: 'Track', icon: MapPin },
             { id: 'score', label: 'Score', icon: Flag },
-            { id: 'bag', label: 'Bag', icon: Briefcase },
+            { id: 'bag', label: 'Bag', icon: GolfBagIcon },
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -770,7 +790,7 @@ const GolfTrackerApp = () => {
                       style={{ padding: '8px 14px', background: 'none', border: '1px solid #ddd', borderRadius: '6px', fontSize: '13px', fontWeight: '600', color: '#888', cursor: 'pointer' }}
                     >Cancel</button>
                     <button
-                      onClick={handleSaveBaseDistances}
+                      onClick={handleSaveBag}
                       style={{ padding: '8px 14px', background: '#1a5f3d', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '600', color: 'white', cursor: 'pointer' }}
                     >Save</button>
                   </div>
@@ -779,84 +799,106 @@ const GolfTrackerApp = () => {
                     onClick={handleEditBag}
                     style={{ padding: '8px 14px', background: 'none', border: '1px solid #1a5f3d', borderRadius: '6px', fontSize: '13px', fontWeight: '600', color: '#1a5f3d', cursor: 'pointer' }}
                   >
-                    {Object.keys(baseDistances).length > 0 ? 'Update Base Distances' : 'Add Base Distances'}
+                    {clubs.length > 0 ? 'Update Base Distances' : 'Add Base Distances'}
                   </button>
                 )}
               </div>
 
-              {/* Column header */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 100px',
-                gap: '8px',
-                padding: '0 12px 8px',
-                fontSize: '11px',
-                fontWeight: '600',
-                color: '#bbb',
-                letterSpacing: '0.5px',
-              }}>
-                <span>CLUB</span>
-                <span style={{ textAlign: 'center' }}>{editingBag ? 'BASE DISTANCE' : 'CURRENT'}</span>
-              </div>
+              {!editingBag && clubs.length > 0 && (
+                <div style={{
+                  display: 'grid', gridTemplateColumns: '1fr 100px',
+                  gap: '8px', padding: '0 12px 8px',
+                  fontSize: '11px', fontWeight: '600', color: '#bbb', letterSpacing: '0.5px',
+                }}>
+                  <span>CLUB</span>
+                  <span style={{ textAlign: 'center' }}>CURRENT</span>
+                </div>
+              )}
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                {clubs.map((club, idx) => {
-                  const { blended, userShots } = getBlendedDistance(club);
-                  const hasData = (club in baseDistances) || userShots > 0;
-                  const displayValue = hasData ? Math.round(blended) : 0;
-                  return (
-                    <div
-                      key={club}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: '1fr 100px',
-                        gap: '8px',
-                        alignItems: 'center',
-                        padding: '10px 12px',
-                        borderRadius: '8px',
-                        background: idx % 2 === 0 ? '#fafafa' : 'white',
-                      }}
-                    >
-                      <span style={{ fontSize: '14px', fontWeight: '500' }}>{club}</span>
-                      {editingBag ? (
-                        <input
-                          type="number"
-                          value={bagInputs[club] ?? ''}
-                          onChange={(e) => setBagInputs(prev => ({ ...prev, [club]: e.target.value }))}
-                          style={{
-                            width: '100%',
-                            padding: '6px 8px',
-                            fontSize: '14px',
-                            fontWeight: '600',
-                            border: '1px solid #ddd',
-                            borderRadius: '6px',
-                            textAlign: 'center',
-                            fontFamily: 'inherit',
-                            boxSizing: 'border-box',
-                            color: '#1a1a1a',
-                          }}
-                        />
-                      ) : (
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '16px', fontWeight: '700', color: hasData ? '#1a5f3d' : '#ccc' }}>
-                            {displayValue}
-                          </div>
-                          {userShots > 0 && (
-                            <div style={{ fontSize: '10px', color: '#bbb' }}>
-                              {userShots} shot{userShots !== 1 ? 's' : ''}
-                            </div>
-                          )}
-                        </div>
-                      )}
+              {editingBag ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: '20px 1fr 80px',
+                    gap: '8px', padding: '0 4px 6px',
+                    fontSize: '11px', fontWeight: '600', color: '#bbb', letterSpacing: '0.5px',
+                  }}>
+                    <span />
+                    <span>CLUB NAME</span>
+                    <span style={{ textAlign: 'center' }}>YARDS</span>
+                  </div>
+                  {bagEditSlots.map((slot, idx) => (
+                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '20px 1fr 80px', gap: '8px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', color: '#ccc', textAlign: 'right' }}>{idx + 1}</span>
+                      <input
+                        type="text"
+                        placeholder="Club name"
+                        value={slot.name}
+                        onChange={e => {
+                          const updated = [...bagEditSlots];
+                          updated[idx] = { ...updated[idx], name: e.target.value };
+                          setBagEditSlots(updated);
+                        }}
+                        style={{
+                          padding: '7px 10px', fontSize: '14px',
+                          border: '1px solid #ddd', borderRadius: '6px',
+                          fontFamily: 'inherit', boxSizing: 'border-box',
+                        }}
+                      />
+                      <input
+                        type="number"
+                        placeholder="—"
+                        value={slot.distance}
+                        onChange={e => {
+                          const updated = [...bagEditSlots];
+                          updated[idx] = { ...updated[idx], distance: e.target.value };
+                          setBagEditSlots(updated);
+                        }}
+                        style={{
+                          padding: '7px 8px', fontSize: '14px', fontWeight: '600',
+                          border: '1px solid #ddd', borderRadius: '6px',
+                          textAlign: 'center', fontFamily: 'inherit', boxSizing: 'border-box',
+                        }}
+                      />
                     </div>
-                  );
-                })}
-              </div>
-
-              {!editingBag && Object.keys(baseDistances).length === 0 && Object.keys(distances).length === 0 && (
-                <p style={{ margin: '20px 0 0 0', fontSize: '12px', color: '#bbb', textAlign: 'center' }}>
-                  Use "Add Base Distances" to set your starting yardages for each club.
-                </p>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {clubs.length > 0 ? clubs.map((club, idx) => {
+                      const { blended, userShots } = getBlendedDistance(club);
+                      const hasData = (club in baseDistances) || userShots > 0;
+                      const displayValue = hasData ? Math.round(blended) : 0;
+                      return (
+                        <div
+                          key={club}
+                          style={{
+                            display: 'grid', gridTemplateColumns: '1fr 100px',
+                            gap: '8px', alignItems: 'center',
+                            padding: '10px 12px', borderRadius: '8px',
+                            background: idx % 2 === 0 ? '#fafafa' : 'white',
+                          }}
+                        >
+                          <span style={{ fontSize: '14px', fontWeight: '500' }}>{club}</span>
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '16px', fontWeight: '700', color: hasData ? '#1a5f3d' : '#ccc' }}>
+                              {displayValue}
+                            </div>
+                            {userShots > 0 && (
+                              <div style={{ fontSize: '10px', color: '#bbb' }}>
+                                {userShots} shot{userShots !== 1 ? 's' : ''}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }) : (
+                      <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#bbb', textAlign: 'center' }}>
+                        Use "Add Base Distances" to set up your clubs.
+                      </p>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>
