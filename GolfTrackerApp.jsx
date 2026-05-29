@@ -801,7 +801,7 @@ const GolfTrackerApp = () => {
                 {editingBag ? (
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button
-                      onClick={() => { setBagInputs({}); setEditingBag(false); }}
+                      onClick={() => { setBagEditSlots([]); setEditingBag(false); }}
                       style={{ padding: '8px 14px', background: 'none', border: '1px solid #ddd', borderRadius: '6px', fontSize: '13px', fontWeight: '600', color: '#888', cursor: 'pointer' }}
                     >Cancel</button>
                     <button
