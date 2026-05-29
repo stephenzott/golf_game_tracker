@@ -36,8 +36,9 @@ const GolfTrackerApp = () => {
   const [baseDistances, setBaseDistances] = useState({});
   const [bagInputs, setBagInputs] = useState({});
   const [editingBag, setEditingBag] = useState(false);
-  // Prevents saving back to Firestore immediately after loading data from it
-  const justLoaded = useRef(false);
+  // Stays false until the initial Firestore load completes, preventing saves
+  // triggered by setUser() firing before getDoc() resolves
+  const saveEnabled = useRef(false);
 
   // Listen for auth state changes; load distances from Firestore when user signs in
   useEffect(() => {
@@ -54,12 +55,12 @@ const GolfTrackerApp = () => {
       }
 
       unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        saveEnabled.current = false;
         setUser(firebaseUser);
         if (firebaseUser) {
           const docRef = doc(db, 'users', firebaseUser.uid);
           const snap = await getDoc(docRef);
           if (snap.exists()) {
-            justLoaded.current = true;
             // Normalize legacy plain-number entries to { value, type } objects
             const raw = snap.data().distances || {};
             const normalized = Object.fromEntries(
@@ -71,12 +72,16 @@ const GolfTrackerApp = () => {
             setDistances(normalized);
             const loadedBase = snap.data().baseDistances || {};
             setBaseDistances(loadedBase);
+          } else {
+            setDistances({});
+            setBaseDistances({});
           }
         } else {
           setDistances({});
-          setBaseDistances(DEFAULT_BASE_DISTANCES);
+          setBaseDistances({});
         }
         setLoading(false);
+        saveEnabled.current = true;
       });
     };
 
@@ -84,13 +89,8 @@ const GolfTrackerApp = () => {
     return () => unsubscribe();
   }, []);
 
-  // Whenever distances or baseDistances change, save to Firestore (skips the initial load to avoid a redundant write)
   useEffect(() => {
-    if (!user) return;
-    if (justLoaded.current) {
-      justLoaded.current = false;
-      return;
-    }
+    if (!user || !saveEnabled.current) return;
     const docRef = doc(db, 'users', user.uid);
     setDoc(docRef, { distances, baseDistances });
   }, [distances, baseDistances, user]);
