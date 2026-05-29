@@ -156,14 +156,17 @@ const GolfTrackerApp = () => {
   };
 
   const handleSaveBag = () => {
-    const sorted = [...bagEditSlots].sort((a, b) => {
-      const da = parseFloat(a.distance) || 0;
-      const db = parseFloat(b.distance) || 0;
-      if (da === 0 && db === 0) return 0;
-      if (da === 0) return 1;
-      if (db === 0) return -1;
-      return db - da;
-    });
+    const sorted = bagEditSlots
+      .map((s, i) => ({ ...s, _i: i }))
+      .sort((a, b) => {
+        const da = parseFloat(a.distance) || 0;
+        const db = parseFloat(b.distance) || 0;
+        if (da === 0 && db === 0) return a._i - b._i;
+        if (da === 0) return 1;
+        if (db === 0) return -1;
+        return db - da;
+      })
+      .map(({ _i, ...s }) => s);
     setBagSlots(sorted);
     setBagEditSlots([]);
     setEditingBag(false);
