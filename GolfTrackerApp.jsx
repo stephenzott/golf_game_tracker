@@ -170,6 +170,11 @@ const GolfTrackerApp = () => {
     setEditingBag(true);
   };
 
+  const handleCancelBag = () => {
+    setBagEditSlots([]);
+    setEditingBag(false);
+  };
+
   const handleSaveBag = () => {
     setBagSlots(sortSlots(bagEditSlots));
     setBagEditSlots([]);
@@ -801,10 +806,12 @@ const GolfTrackerApp = () => {
                 {editingBag ? (
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button
-                      onClick={() => { setBagEditSlots([]); setEditingBag(false); }}
+                      type="button"
+                      onClick={handleCancelBag}
                       style={{ padding: '8px 14px', background: 'none', border: '1px solid #ddd', borderRadius: '6px', fontSize: '13px', fontWeight: '600', color: '#888', cursor: 'pointer' }}
                     >Cancel</button>
                     <button
+                      type="button"
                       onClick={handleSaveBag}
                       style={{ padding: '8px 14px', background: '#1a5f3d', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '600', color: 'white', cursor: 'pointer' }}
                     >Save</button>
