@@ -181,8 +181,11 @@ const GolfTrackerApp = () => {
     let bestClub = null;
     let closestDiff = Infinity;
 
-    // Walk all clubs and pick the one whose blended distance is closest to the target
-    clubs.forEach(club => {
+    // Only consider clubs that can reach the target; fall back to the longest club if none can
+    const reachable = clubs.filter(club => getBlendedDistance(club).blended >= targetDistance);
+    const candidates = reachable.length > 0 ? reachable : clubs;
+
+    candidates.forEach(club => {
       const { blended, userShots } = getBlendedDistance(club);
       const diff = Math.abs(blended - targetDistance);
       if (diff < closestDiff) {
