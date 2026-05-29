@@ -9,6 +9,19 @@ import { auth, googleProvider, db } from './src/firebase.js';
 
 const EMPTY_SLOT = () => ({ name: '', distance: '' });
 
+const sortSlots = (slots) =>
+  slots
+    .map((s, i) => ({ ...s, _i: i }))
+    .sort((a, b) => {
+      const da = parseFloat(a.distance) || 0;
+      const db = parseFloat(b.distance) || 0;
+      if (da === 0 && db === 0) return a._i - b._i;
+      if (da === 0) return 1;
+      if (db === 0) return -1;
+      return db - da;
+    })
+    .map(({ _i, ...s }) => s);
+
 const GolfBagIcon = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M6 11h12l-1.5 10H7.5L6 11z" />
@@ -82,9 +95,8 @@ const GolfTrackerApp = () => {
                 name: s.name || '',
                 distance: s.distance != null ? String(s.distance) : '',
               }));
-              // Pad to 13 slots if the stored array is shorter
               while (loaded.length < 13) loaded.push(EMPTY_SLOT());
-              setBagSlots(loaded);
+              setBagSlots(sortSlots(loaded));
             } else if (snap.data().baseDistances) {
               // Migrate old baseDistances format into bagSlots
               const old = snap.data().baseDistances;
@@ -93,7 +105,7 @@ const GolfTrackerApp = () => {
                 distance: String(distance),
               }));
               while (slots.length < 13) slots.push(EMPTY_SLOT());
-              setBagSlots(slots);
+              setBagSlots(sortSlots(slots));
             }
           } else {
             setDistances({});
@@ -156,18 +168,7 @@ const GolfTrackerApp = () => {
   };
 
   const handleSaveBag = () => {
-    const sorted = bagEditSlots
-      .map((s, i) => ({ ...s, _i: i }))
-      .sort((a, b) => {
-        const da = parseFloat(a.distance) || 0;
-        const db = parseFloat(b.distance) || 0;
-        if (da === 0 && db === 0) return a._i - b._i;
-        if (da === 0) return 1;
-        if (db === 0) return -1;
-        return db - da;
-      })
-      .map(({ _i, ...s }) => s);
-    setBagSlots(sorted);
+    setBagSlots(sortSlots(bagEditSlots));
     setBagEditSlots([]);
     setEditingBag(false);
   };
