@@ -39,6 +39,9 @@
 ### Scorekeeping
 - Per-hole stat tracking tab
 - Hole yardage field on scorecard
+- Course name, rating, and slope recorded at round start (all optional)
+- Past courses shown as quick-select chips on the start screen
+- Delete button on each round in history view (removes from Firestore + UI instantly)
 
 ### GPS Shot Tracking
 - Mapbox satellite map
@@ -54,10 +57,10 @@
 ## Next Possible Features
 
 ### Phase 2:
-- Course name/date tracking
 - Round summary view
 - Chart visualization of distances per club
 - Export round data to CSV
+- Handicap differential calculation (uses rating + slope now stored on rounds)
 
 ### Phase 3:
 - Multiple rounds comparison
