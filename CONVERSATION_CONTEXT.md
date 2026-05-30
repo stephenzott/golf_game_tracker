@@ -63,6 +63,7 @@
 - Chart visualization of distances per club
 - Export round data to CSV
 - Handicap differential calculation (uses rating + slope now stored on rounds)
+- "Post to GHIN" button after round completion — deep links to ghin.com for manual posting (no official API without USGA partnership)
 
 ### Phase 3:
 - Multiple rounds comparison
