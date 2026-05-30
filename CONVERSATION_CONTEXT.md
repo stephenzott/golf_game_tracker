@@ -46,6 +46,8 @@
 ### GPS Shot Tracking
 - Mapbox satellite map
 - Log shot locations with GPS
+- Club selector appears immediately after marking shot (can select while walking to ball)
+- Log It button only appears once ball position is recorded and distance calculated
 
 ### PWA
 - Installable from browser to home screen
