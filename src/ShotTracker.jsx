@@ -154,39 +154,14 @@ const ShotTracker = ({ clubs, onLogDistance }) => {
       {/* Bottom control panel */}
       <div style={{ padding: '16px', background: 'white', boxShadow: '0 -2px 8px rgba(0,0,0,0.08)', flexShrink: 0 }}>
         {yards ? (
-          <>
-            <div style={{ textAlign: 'center', marginBottom: '14px' }}>
-              <p style={{ margin: '0 0 2px', fontSize: '12px', color: '#888', fontWeight: '600', letterSpacing: '0.5px' }}>SHOT DISTANCE</p>
-              <p style={{ margin: 0, fontSize: '52px', fontWeight: '700', color: '#1a5f3d', letterSpacing: '-2px', lineHeight: 1 }}>
-                {yards} <span style={{ fontSize: '18px', color: '#888', fontWeight: '400' }}>yds</span>
-              </p>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-              <select
-                value={selectedClub}
-                onChange={e => setSelectedClub(e.target.value)}
-                style={{ padding: '12px', fontSize: '14px', border: '1px solid #ddd', borderRadius: '8px', fontFamily: 'inherit', background: 'white' }}
-              >
-                <option value="">Select club...</option>
-                {clubs.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <button
-                onClick={handleLog}
-                disabled={!selectedClub}
-                style={{ padding: '12px', background: selectedClub ? '#1a5f3d' : '#ddd', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: selectedClub ? 'pointer' : 'default' }}
-              >
-                Log It
-              </button>
-            </div>
-            <button
-              onClick={handleReset}
-              style={{ width: '100%', padding: '10px', background: 'none', border: '1px solid #ddd', borderRadius: '8px', fontSize: '13px', color: '#888', cursor: 'pointer' }}
-            >
-              New Shot
-            </button>
-          </>
+          <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+            <p style={{ margin: '0 0 2px', fontSize: '12px', color: '#888', fontWeight: '600', letterSpacing: '0.5px' }}>SHOT DISTANCE</p>
+            <p style={{ margin: 0, fontSize: '52px', fontWeight: '700', color: '#1a5f3d', letterSpacing: '-2px', lineHeight: 1 }}>
+              {yards} <span style={{ fontSize: '18px', color: '#888', fontWeight: '400' }}>yds</span>
+            </p>
+          </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: shotPos ? '12px' : '0' }}>
             <button
               onClick={handleMarkShot}
               disabled={locating}
@@ -199,9 +174,39 @@ const ShotTracker = ({ clubs, onLogDistance }) => {
               disabled={!shotPos || locating}
               style={{ padding: '16px 12px', background: shotPos ? '#2d7a52' : '#ddd', color: 'white', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: '600', cursor: shotPos ? 'pointer' : 'default' }}
             >
-              {locating && shotPos ? 'Locating...' : "At My Ball"}
+              {locating && shotPos ? 'Locating...' : 'At My Ball'}
             </button>
           </div>
+        )}
+
+        {shotPos && (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: yards ? '1fr 1fr' : '1fr', gap: '8px', marginBottom: '8px' }}>
+              <select
+                value={selectedClub}
+                onChange={e => setSelectedClub(e.target.value)}
+                style={{ padding: '12px', fontSize: '14px', border: '1px solid #ddd', borderRadius: '8px', fontFamily: 'inherit', background: 'white' }}
+              >
+                <option value="">Select club...</option>
+                {clubs.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              {yards && (
+                <button
+                  onClick={handleLog}
+                  disabled={!selectedClub}
+                  style={{ padding: '12px', background: selectedClub ? '#1a5f3d' : '#ddd', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: selectedClub ? 'pointer' : 'default' }}
+                >
+                  Log It
+                </button>
+              )}
+            </div>
+            <button
+              onClick={handleReset}
+              style={{ width: '100%', padding: '10px', background: 'none', border: '1px solid #ddd', borderRadius: '8px', fontSize: '13px', color: '#888', cursor: 'pointer' }}
+            >
+              New Shot
+            </button>
+          </>
         )}
       </div>
     </div>
