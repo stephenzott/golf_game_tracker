@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { collection, addDoc, getDocs, query, orderBy, setDoc, doc } from 'firebase/firestore';
 
 const scoreLabel = (score, par) => {
@@ -81,6 +81,14 @@ const Scorecard = ({ user, db }) => {
   const [pastRounds, setPastRounds] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [courseSearch, setCourseSearch] = useState('');
+  const [courseResults, setCourseResults] = useState([]);
+  const [selectedCourse, setSelectedCourse] = useState('');
+  const [rating, setRating] = useState('');
+  const [slope, setSlope] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const searchTimerRef = useRef(null);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -102,6 +110,32 @@ const Scorecard = ({ user, db }) => {
     })();
   }, [user]);
 
+  const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const searchCourses = async (term) => {
+    if (!term || term.length < 3) { setCourseResults([]); setShowResults(false); return; }
+    setSearching(true);
+    try {
+      const q = `[out:json][timeout:10];(way["leisure"="golf_course"]["name"~"${escapeRegex(term)}",i];relation["leisure"="golf_course"]["name"~"${escapeRegex(term)}",i];);out tags;`;
+      const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      const names = [...new Set(data.elements.map(e => e.tags?.name).filter(Boolean))].sort();
+      setCourseResults(names);
+      setShowResults(true);
+    } catch {
+      setCourseResults([]);
+      setShowResults(false);
+    }
+    setSearching(false);
+  };
+
+  const handleCourseSearch = (val) => {
+    setCourseSearch(val);
+    setSelectedCourse('');
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => searchCourses(val), 500);
+  };
+
   const persist = async (r, id) => {
     if (!id) return;
     try { await setDoc(doc(db, 'users', user.uid, 'rounds', id), r); }
@@ -115,6 +149,9 @@ const Scorecard = ({ user, db }) => {
       completed: false,
       abandoned: false,
       holeData: Array.from({ length: numHoles }, (_, i) => makeHole(i)),
+      course: selectedCourse ? { name: selectedCourse } : null,
+      rating: rating ? parseFloat(rating) : null,
+      slope: slope ? parseInt(slope, 10) : null,
     };
     const ref = await addDoc(collection(db, 'users', user.uid, 'rounds'), newRound);
     setRoundDocId(ref.id);
@@ -178,6 +215,12 @@ const Scorecard = ({ user, db }) => {
     setRoundDocId(null);
     setCurrentHole(0);
     setShowHistory(false);
+    setSelectedCourse('');
+    setCourseSearch('');
+    setRating('');
+    setSlope('');
+    setCourseResults([]);
+    setShowResults(false);
   };
 
   if (loading) {
@@ -205,6 +248,9 @@ const Scorecard = ({ user, db }) => {
       <div style={{ padding: '20px 16px 40px', maxWidth: '600px', margin: '0 auto' }}>
         <div style={{ background: 'white', borderRadius: '14px', padding: '24px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
           <p style={{ margin: '0 0 6px', fontSize: '12px', color: '#aaa', fontWeight: '700', letterSpacing: '0.5px' }}>ROUND COMPLETE · {round.date}</p>
+          {round.course?.name && (
+            <p style={{ margin: '0 0 8px', fontSize: '15px', fontWeight: '600', color: '#1a1a1a' }}>{round.course.name}</p>
+          )}
           <div style={{ fontSize: '60px', fontWeight: '700', letterSpacing: '-3px', color: diff === 0 ? '#1a1a1a' : diff < 0 ? '#ef4444' : '#1a5f3d', lineHeight: 1 }}>
             {diff === 0 ? 'E' : diff > 0 ? `+${diff}` : diff}
           </div>
@@ -291,8 +337,8 @@ const Scorecard = ({ user, db }) => {
               return (
                 <div key={r.id} style={{ background: 'white', borderRadius: '12px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <p style={{ margin: '0 0 2px', fontSize: '14px', fontWeight: '600' }}>{r.date}</p>
-                    <p style={{ margin: 0, fontSize: '12px', color: '#aaa' }}>{r.holes} holes</p>
+                    <p style={{ margin: '0 0 2px', fontSize: '14px', fontWeight: '600' }}>{r.course?.name ?? r.date}</p>
+                    <p style={{ margin: 0, fontSize: '12px', color: '#aaa' }}>{r.course?.name ? `${r.date} · ` : ''}{r.holes} holes</p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <p style={{ margin: 0, fontSize: '26px', fontWeight: '700', letterSpacing: '-1px', color: d === 0 ? '#1a1a1a' : d < 0 ? '#ef4444' : '#1a5f3d' }}>
@@ -311,12 +357,101 @@ const Scorecard = ({ user, db }) => {
 
   // ── Start screen ──────────────────────────────────────────────────────────
   if (!round) {
+    const pastCourses = [...new Set(pastRounds.map(r => r.course?.name).filter(Boolean))];
     return (
-      <div style={{ padding: '48px 16px 40px', maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-        <div style={{ fontSize: '52px', marginBottom: '12px' }}>⛳</div>
-        <h2 style={{ margin: '0 0 8px', fontSize: '22px', fontWeight: '700' }}>Scorekeeper</h2>
-        <p style={{ margin: '0 0 40px', fontSize: '14px', color: '#888' }}>Track fairways, greens, putts, hazards & bunkers.</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '28px' }}>
+      <div style={{ padding: '32px 16px 40px', maxWidth: '600px', margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <div style={{ fontSize: '52px', marginBottom: '12px' }}>⛳</div>
+          <h2 style={{ margin: '0 0 8px', fontSize: '22px', fontWeight: '700' }}>Scorekeeper</h2>
+          <p style={{ margin: 0, fontSize: '14px', color: '#888' }}>Track fairways, greens, putts, hazards & bunkers.</p>
+        </div>
+
+        {/* Course lookup */}
+        <div style={{ background: 'white', borderRadius: '14px', padding: '20px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <p style={{ margin: '0 0 12px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>COURSE (optional)</p>
+
+          {!selectedCourse && pastCourses.length > 0 && (
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+              {pastCourses.map(c => (
+                <button
+                  key={c}
+                  onClick={() => { setSelectedCourse(c); setCourseSearch(c); setShowResults(false); }}
+                  style={{ padding: '6px 12px', background: '#f0f4f1', border: '1px solid #c8ddd2', borderRadius: '20px', fontSize: '13px', color: '#1a5f3d', fontWeight: '600', cursor: 'pointer' }}
+                >{c}</button>
+              ))}
+            </div>
+          )}
+
+          {!selectedCourse ? (
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                value={courseSearch}
+                onChange={e => handleCourseSearch(e.target.value)}
+                placeholder="Search for a course…"
+                style={{ width: '100%', padding: '11px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit' }}
+              />
+              {searching && (
+                <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: '#aaa' }}>Searching…</span>
+              )}
+              {showResults && (courseResults.length > 0 || (!searching && courseSearch.length >= 3)) && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid #e0e0e0', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10, maxHeight: '200px', overflowY: 'auto', marginTop: '4px' }}>
+                  {courseSearch && !courseResults.includes(courseSearch) && (
+                    <button
+                      onClick={() => { setSelectedCourse(courseSearch); setShowResults(false); }}
+                      style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', borderBottom: courseResults.length > 0 ? '1px solid #f0f0f0' : 'none', textAlign: 'left', fontSize: '13px', color: '#888', cursor: 'pointer', fontStyle: 'italic', fontFamily: 'inherit' }}
+                    >Use "{courseSearch}"</button>
+                  )}
+                  {courseResults.map(name => (
+                    <button
+                      key={name}
+                      onClick={() => { setSelectedCourse(name); setCourseSearch(name); setShowResults(false); }}
+                      style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', borderBottom: '1px solid #f5f5f5', textAlign: 'left', fontSize: '14px', color: '#1a1a1a', cursor: 'pointer', fontFamily: 'inherit' }}
+                    >{name}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#f0f4f1', borderRadius: '8px', border: '1px solid #c8ddd2' }}>
+              <span style={{ fontSize: '14px', fontWeight: '600', color: '#1a5f3d' }}>{selectedCourse}</span>
+              <button
+                onClick={() => { setSelectedCourse(''); setCourseSearch(''); setShowResults(false); setCourseResults([]); }}
+                style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '20px', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}
+              >×</button>
+            </div>
+          )}
+
+          {selectedCourse && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px', marginBottom: '6px' }}>RATING</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  value={rating}
+                  onChange={e => setRating(e.target.value)}
+                  placeholder="e.g. 72.1"
+                  style={{ width: '100%', padding: '10px 12px', fontSize: '16px', fontWeight: '600', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit', textAlign: 'center' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px', marginBottom: '6px' }}>SLOPE</label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={slope}
+                  onChange={e => setSlope(e.target.value)}
+                  placeholder="e.g. 131"
+                  style={{ width: '100%', padding: '10px 12px', fontSize: '16px', fontWeight: '600', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit', textAlign: 'center' }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
           {[9, 18].map(n => (
             <button
               key={n}
@@ -327,13 +462,16 @@ const Scorecard = ({ user, db }) => {
             </button>
           ))}
         </div>
+
         {pastRounds.length > 0 && (
-          <button
-            onClick={() => setShowHistory(true)}
-            style={{ background: 'none', border: 'none', color: '#1a5f3d', fontSize: '14px', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}
-          >
-            View Past Rounds ({pastRounds.length})
-          </button>
+          <div style={{ textAlign: 'center' }}>
+            <button
+              onClick={() => setShowHistory(true)}
+              style={{ background: 'none', border: 'none', color: '#1a5f3d', fontSize: '14px', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              View Past Rounds ({pastRounds.length})
+            </button>
+          </div>
         )}
       </div>
     );
