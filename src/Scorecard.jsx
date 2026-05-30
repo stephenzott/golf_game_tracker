@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, query, orderBy, setDoc, doc } from 'firebase/firestore';
 
 const scoreLabel = (score, par) => {
@@ -81,14 +81,9 @@ const Scorecard = ({ user, db }) => {
   const [pastRounds, setPastRounds] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [courseSearch, setCourseSearch] = useState('');
-  const [courseResults, setCourseResults] = useState([]);
-  const [selectedCourse, setSelectedCourse] = useState('');
+  const [courseName, setCourseName] = useState('');
   const [rating, setRating] = useState('');
   const [slope, setSlope] = useState('');
-  const [searching, setSearching] = useState(false);
-  const [showResults, setShowResults] = useState(false);
-  const searchTimerRef = useRef(null);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -110,32 +105,6 @@ const Scorecard = ({ user, db }) => {
     })();
   }, [user]);
 
-  const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-  const searchCourses = async (term) => {
-    if (!term || term.length < 3) { setCourseResults([]); setShowResults(false); return; }
-    setSearching(true);
-    try {
-      const q = `[out:json][timeout:10];(way["leisure"="golf_course"]["name"~"${escapeRegex(term)}",i];relation["leisure"="golf_course"]["name"~"${escapeRegex(term)}",i];);out tags;`;
-      const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
-      const data = await res.json();
-      const names = [...new Set(data.elements.map(e => e.tags?.name).filter(Boolean))].sort();
-      setCourseResults(names);
-      setShowResults(true);
-    } catch {
-      setCourseResults([]);
-      setShowResults(false);
-    }
-    setSearching(false);
-  };
-
-  const handleCourseSearch = (val) => {
-    setCourseSearch(val);
-    setSelectedCourse('');
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    searchTimerRef.current = setTimeout(() => searchCourses(val), 500);
-  };
-
   const persist = async (r, id) => {
     if (!id) return;
     try { await setDoc(doc(db, 'users', user.uid, 'rounds', id), r); }
@@ -149,7 +118,7 @@ const Scorecard = ({ user, db }) => {
       completed: false,
       abandoned: false,
       holeData: Array.from({ length: numHoles }, (_, i) => makeHole(i)),
-      course: selectedCourse ? { name: selectedCourse } : null,
+      course: courseName ? { name: courseName } : null,
       rating: rating ? parseFloat(rating) : null,
       slope: slope ? parseInt(slope, 10) : null,
     };
@@ -215,12 +184,9 @@ const Scorecard = ({ user, db }) => {
     setRoundDocId(null);
     setCurrentHole(0);
     setShowHistory(false);
-    setSelectedCourse('');
-    setCourseSearch('');
+    setCourseName('');
     setRating('');
     setSlope('');
-    setCourseResults([]);
-    setShowResults(false);
   };
 
   if (loading) {
@@ -366,89 +332,54 @@ const Scorecard = ({ user, db }) => {
           <p style={{ margin: 0, fontSize: '14px', color: '#888' }}>Track fairways, greens, putts, hazards & bunkers.</p>
         </div>
 
-        {/* Course lookup */}
         <div style={{ background: 'white', borderRadius: '14px', padding: '20px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <p style={{ margin: '0 0 12px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>COURSE (optional)</p>
 
-          {!selectedCourse && pastCourses.length > 0 && (
+          {pastCourses.length > 0 && (
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
               {pastCourses.map(c => (
                 <button
                   key={c}
-                  onClick={() => { setSelectedCourse(c); setCourseSearch(c); setShowResults(false); }}
-                  style={{ padding: '6px 12px', background: '#f0f4f1', border: '1px solid #c8ddd2', borderRadius: '20px', fontSize: '13px', color: '#1a5f3d', fontWeight: '600', cursor: 'pointer' }}
+                  onClick={() => setCourseName(c)}
+                  style={{ padding: '6px 12px', background: courseName === c ? '#1a5f3d' : '#f0f4f1', border: `1px solid ${courseName === c ? '#1a5f3d' : '#c8ddd2'}`, borderRadius: '20px', fontSize: '13px', color: courseName === c ? 'white' : '#1a5f3d', fontWeight: '600', cursor: 'pointer' }}
                 >{c}</button>
               ))}
             </div>
           )}
 
-          {!selectedCourse ? (
-            <div style={{ position: 'relative' }}>
-              <input
-                type="text"
-                value={courseSearch}
-                onChange={e => handleCourseSearch(e.target.value)}
-                placeholder="Search for a course…"
-                style={{ width: '100%', padding: '11px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit' }}
-              />
-              {searching && (
-                <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: '#aaa' }}>Searching…</span>
-              )}
-              {showResults && (courseResults.length > 0 || (!searching && courseSearch.length >= 3)) && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid #e0e0e0', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10, maxHeight: '200px', overflowY: 'auto', marginTop: '4px' }}>
-                  {courseSearch && !courseResults.includes(courseSearch) && (
-                    <button
-                      onClick={() => { setSelectedCourse(courseSearch); setShowResults(false); }}
-                      style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', borderBottom: courseResults.length > 0 ? '1px solid #f0f0f0' : 'none', textAlign: 'left', fontSize: '13px', color: '#888', cursor: 'pointer', fontStyle: 'italic', fontFamily: 'inherit' }}
-                    >Use "{courseSearch}"</button>
-                  )}
-                  {courseResults.map(name => (
-                    <button
-                      key={name}
-                      onClick={() => { setSelectedCourse(name); setCourseSearch(name); setShowResults(false); }}
-                      style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', borderBottom: '1px solid #f5f5f5', textAlign: 'left', fontSize: '14px', color: '#1a1a1a', cursor: 'pointer', fontFamily: 'inherit' }}
-                    >{name}</button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#f0f4f1', borderRadius: '8px', border: '1px solid #c8ddd2' }}>
-              <span style={{ fontSize: '14px', fontWeight: '600', color: '#1a5f3d' }}>{selectedCourse}</span>
-              <button
-                onClick={() => { setSelectedCourse(''); setCourseSearch(''); setShowResults(false); setCourseResults([]); }}
-                style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '20px', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}
-              >×</button>
-            </div>
-          )}
+          <input
+            type="text"
+            value={courseName}
+            onChange={e => setCourseName(e.target.value)}
+            placeholder="Type course name…"
+            style={{ width: '100%', padding: '11px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit' }}
+          />
 
-          {selectedCourse && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '14px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px', marginBottom: '6px' }}>RATING</label>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.1"
-                  value={rating}
-                  onChange={e => setRating(e.target.value)}
-                  placeholder="e.g. 72.1"
-                  style={{ width: '100%', padding: '10px 12px', fontSize: '16px', fontWeight: '600', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit', textAlign: 'center' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px', marginBottom: '6px' }}>SLOPE</label>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  value={slope}
-                  onChange={e => setSlope(e.target.value)}
-                  placeholder="e.g. 131"
-                  style={{ width: '100%', padding: '10px 12px', fontSize: '16px', fontWeight: '600', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit', textAlign: 'center' }}
-                />
-              </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px', marginBottom: '6px' }}>RATING</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                value={rating}
+                onChange={e => setRating(e.target.value)}
+                placeholder="e.g. 72.1"
+                style={{ width: '100%', padding: '10px 12px', fontSize: '16px', fontWeight: '600', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit', textAlign: 'center' }}
+              />
             </div>
-          )}
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px', marginBottom: '6px' }}>SLOPE</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={slope}
+                onChange={e => setSlope(e.target.value)}
+                placeholder="e.g. 131"
+                style={{ width: '100%', padding: '10px 12px', fontSize: '16px', fontWeight: '600', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit', textAlign: 'center' }}
+              />
+            </div>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>

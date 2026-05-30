@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { TrendingUp, Plus, Trash2, Target, LogOut, MapPin, Flag } from 'lucide-react';
 import ShotTracker from './src/ShotTracker.jsx';
 import Scorecard from './src/Scorecard.jsx';
-import { signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithRedirect, signInWithPopup, getRedirectResult, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, googleProvider, db } from './src/firebase.js';
 
@@ -132,8 +132,12 @@ const GolfTrackerApp = () => {
     setDoc(docRef, { distances, bag });
   }, [distances, bagSlots, user]);
 
-  // Redirect to Google sign-in (works on mobile; popups are often blocked)
-  const handleSignIn = () => signInWithRedirect(auth, googleProvider);
+  // Use popup on localhost (redirect misfires with a non-localhost authDomain);
+  // use redirect everywhere else so mobile browsers don't block it.
+  const handleSignIn = () =>
+    window.location.hostname === 'localhost'
+      ? signInWithPopup(auth, googleProvider)
+      : signInWithRedirect(auth, googleProvider);
   const handleSignOut = () => signOut(auth);
 
   // Derived from bagSlots — only slots with a name are active clubs, sorted by base distance desc
