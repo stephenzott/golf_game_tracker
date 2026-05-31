@@ -85,6 +85,7 @@ const Scorecard = ({ user, db }) => {
   const [rating, setRating] = useState('');
   const [slope, setSlope] = useState('');
   const [roundDate, setRoundDate] = useState(new Date().toLocaleDateString('en-CA'));
+  const [ghostMode, setGhostMode] = useState('none');
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -112,6 +113,29 @@ const Scorecard = ({ user, db }) => {
     catch (e) { console.error(e); }
   };
 
+  const computeGhostScores = (numHoles) => {
+    if (ghostMode === 'none' || !courseName) return null;
+    const courseRounds = pastRounds.filter(r =>
+      r.course?.name?.toLowerCase() === courseName.toLowerCase()
+    );
+    if (courseRounds.length === 0) return null;
+    if (ghostMode === 'best-round') {
+      const best = courseRounds.reduce((a, b) => {
+        const aTotal = a.holeData.reduce((s, h) => s + (h.score ?? h.par), 0);
+        const bTotal = b.holeData.reduce((s, h) => s + (h.score ?? h.par), 0);
+        return aTotal <= bTotal ? a : b;
+      });
+      return Array.from({ length: numHoles }, (_, i) => best.holeData[i]?.score ?? null);
+    }
+    if (ghostMode === 'best-hole') {
+      return Array.from({ length: numHoles }, (_, i) => {
+        const scores = courseRounds.map(r => r.holeData[i]?.score).filter(s => s != null);
+        return scores.length > 0 ? Math.min(...scores) : null;
+      });
+    }
+    return null;
+  };
+
   const startRound = async (numHoles) => {
     const newRound = {
       date: roundDate,
@@ -122,6 +146,8 @@ const Scorecard = ({ user, db }) => {
       course: courseName ? { name: courseName } : null,
       rating: rating ? parseFloat(rating) : null,
       slope: slope ? parseInt(slope, 10) : null,
+      ghostMode,
+      ghostScores: computeGhostScores(numHoles),
     };
     const ref = await addDoc(collection(db, 'users', user.uid, 'rounds'), newRound);
     setRoundDocId(ref.id);
@@ -392,6 +418,35 @@ const Scorecard = ({ user, db }) => {
               style={{ width: '100%', padding: '10px 12px', fontSize: '16px', fontWeight: '600', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit' }}
             />
           </div>
+
+          {courseName && pastRounds.some(r => r.course?.name?.toLowerCase() === courseName.toLowerCase()) && (
+            <div style={{ marginTop: '14px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px', marginBottom: '8px' }}>GHOST ROUND</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                {[
+                  { value: 'none', label: 'None' },
+                  { value: 'best-round', label: 'Best Round' },
+                  { value: 'best-hole', label: 'Best Hole' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setGhostMode(opt.value)}
+                    style={{
+                      padding: '10px 6px',
+                      background: ghostMode === opt.value ? '#1a5f3d' : '#f0f4f1',
+                      border: `1px solid ${ghostMode === opt.value ? '#1a5f3d' : '#c8ddd2'}`,
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: ghostMode === opt.value ? 'white' : '#1a5f3d',
+                      cursor: 'pointer',
+                    }}
+                  >{opt.label}</button>
+                ))}
+              </div>
+              <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#aaa', fontStyle: 'italic' }}>Ghost mode matches by course only, not by tees.</p>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
@@ -463,6 +518,11 @@ const Scorecard = ({ user, db }) => {
             {currentHole + 1}
             <span style={{ fontSize: '14px', opacity: 0.65, fontWeight: '400' }}> / {round.holes}</span>
           </p>
+          {round.ghostMode !== 'none' && round.ghostScores?.[currentHole] != null && (
+            <p style={{ margin: '4px 0 0', fontSize: '11px', opacity: 0.8, fontWeight: '600', letterSpacing: '0.5px' }}>
+              👻 {round.ghostScores[currentHole]}
+            </p>
+          )}
         </div>
         <div style={{ textAlign: 'right' }}>
           <p style={{ margin: 0, fontSize: '11px', opacity: 0.75, fontWeight: '600', letterSpacing: '0.5px' }}>THRU {confirmed.length}</p>
