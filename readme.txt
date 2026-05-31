@@ -33,6 +33,15 @@ Scorekeeping
   - Course name, rating, and slope recorded at round start
   - Past courses shown as quick-select chips
   - Round history with delete support
+  - Date picker at round start — defaults to today, supports logging past rounds
+
+Ghost Rounds
+  - When starting a round at a previously played course, choose a ghost mode:
+      None       — no ghost (default)
+      Best Round — shows scores from your lowest-scoring round at that course
+      Best Hole  — shows your best-ever score on each individual hole
+  - Ghost score displayed in the header during play as 👻 + score
+  - Matches by course name only, not by tees
 
 GPS Shot Tracker
   - Mapbox satellite map with GPS shot logging
