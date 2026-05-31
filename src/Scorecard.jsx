@@ -84,6 +84,7 @@ const Scorecard = ({ user, db }) => {
   const [courseName, setCourseName] = useState('');
   const [rating, setRating] = useState('');
   const [slope, setSlope] = useState('');
+  const [roundDate, setRoundDate] = useState(new Date().toLocaleDateString('en-CA'));
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -113,7 +114,7 @@ const Scorecard = ({ user, db }) => {
 
   const startRound = async (numHoles) => {
     const newRound = {
-      date: new Date().toLocaleDateString('en-CA'),
+      date: roundDate,
       holes: numHoles,
       completed: false,
       abandoned: false,
@@ -379,6 +380,17 @@ const Scorecard = ({ user, db }) => {
                 style={{ width: '100%', padding: '10px 12px', fontSize: '16px', fontWeight: '600', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit', textAlign: 'center' }}
               />
             </div>
+          </div>
+
+          <div style={{ marginTop: '14px' }}>
+            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px', marginBottom: '6px' }}>DATE</label>
+            <input
+              type="date"
+              value={roundDate}
+              max={new Date().toLocaleDateString('en-CA')}
+              onChange={e => setRoundDate(e.target.value)}
+              style={{ width: '100%', padding: '10px 12px', fontSize: '16px', fontWeight: '600', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit' }}
+            />
           </div>
         </div>
 
