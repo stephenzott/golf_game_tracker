@@ -153,20 +153,31 @@ const GolfTrackerApp = () => {
 
   // Treating the baseline as 5 virtual shots — real data overtakes it after ~10 logged shots
   const BASE_WEIGHT = 5;
+  const OUTLIER_MIN_SHOTS = 15;
+  const OUTLIER_THRESHOLD = 0.6;
+
+  // Drops shots below 60% of the raw mean once 15+ shots are logged.
+  // Only trims low outliers (mishits) — unusually long shots are kept.
+  const filterOutliers = (shots) => {
+    if (shots.length < OUTLIER_MIN_SHOTS) return shots;
+    const rawMean = shots.reduce((s, shot) => s + shot.value, 0) / shots.length;
+    return shots.filter(shot => shot.value >= rawMean * OUTLIER_THRESHOLD);
+  };
 
   // Blends the baseline with the user's logged average.
   // Range shots count as 1/10th of a course shot so they influence the average
   // without overwhelming a small number of real on-course readings.
   const getBlendedDistance = (club) => {
     const base = baseDistances[club] ?? 0;
-    const shots = distances[club] || [];
-    if (shots.length === 0) return { blended: base, userShots: 0 };
+    const allShots = distances[club] || [];
+    if (allShots.length === 0) return { blended: base, userShots: 0 };
+    const shots = filterOutliers(allShots);
     const RANGE_WEIGHT = 0.1;
     const effectiveWeight = shots.reduce((w, s) => w + (s.type === 'range' ? RANGE_WEIGHT : 1), 0);
     const weightedSum = shots.reduce((sum, s) => sum + s.value * (s.type === 'range' ? RANGE_WEIGHT : 1), 0);
     const userAvg = weightedSum / effectiveWeight;
     const blended = (base * BASE_WEIGHT + userAvg * effectiveWeight) / (BASE_WEIGHT + effectiveWeight);
-    return { blended, userShots: shots.length };
+    return { blended, userShots: allShots.length };
   };
 
   const handleEditBag = () => {
@@ -216,8 +227,9 @@ const GolfTrackerApp = () => {
 
   const getAverageDistance = (club) => {
     if (!distances[club] || distances[club].length === 0) return 0;
-    const sum = distances[club].reduce((a, s) => a + s.value, 0);
-    return (sum / distances[club].length).toFixed(1);
+    const shots = filterOutliers(distances[club]);
+    const sum = shots.reduce((a, s) => a + s.value, 0);
+    return (sum / shots.length).toFixed(1);
   };
 
   // Finds the best club for a given target distance, then adjusts for wind and elevation
