@@ -22,6 +22,8 @@ Club Distance Tracking
   - Personalized base distances per club, blended with logged shots via
     weighted averaging
   - Range shot type with reduced weighting (1/10th vs on-course shots)
+  - Outlier filtering — shots below 60% of a club's mean are excluded once
+    15+ shots are logged, keeping mishits from skewing recommendations
   - Smart club recommendations based on target distance
 
 My Bag
@@ -56,6 +58,8 @@ Planned Features
 ----------------
 Phase 2 (Near-term):
   - Round summary view
+  - Knockdown shot type — log partial swings separately from full swings,
+    with knockdown yardages available in the club suggestion tab
   - Club distance chart visualization
   - Export round data to CSV
   - Handicap differential calculation (uses rating + slope already stored)
