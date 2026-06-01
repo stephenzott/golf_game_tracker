@@ -86,6 +86,30 @@ const Scorecard = ({ user, db }) => {
   const [slope, setSlope] = useState('');
   const [roundDate, setRoundDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [ghostMode, setGhostMode] = useState('none');
+  const [courseResults, setCourseResults] = useState([]);
+  const [userLatLng, setUserLatLng] = useState(null);
+
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      pos => setUserLatLng({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {}
+    );
+  }, []);
+
+  useEffect(() => {
+    if (courseName.length < 3) { setCourseResults([]); return; }
+    const params = new URLSearchParams({ q: courseName, osm_tag: 'leisure:golf_course', limit: 8 });
+    if (userLatLng) { params.set('lat', userLatLng.lat); params.set('lon', userLatLng.lng); }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://photon.komoot.io/api/?${params}`);
+        const data = await res.json();
+        const names = [...new Set(data.features.map(f => f.properties?.name).filter(Boolean))];
+        setCourseResults(names.slice(0, 8));
+      } catch { setCourseResults([]); }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [courseName, userLatLng]);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -374,13 +398,27 @@ const Scorecard = ({ user, db }) => {
             </div>
           )}
 
-          <input
-            type="text"
-            value={courseName}
-            onChange={e => setCourseName(e.target.value)}
-            placeholder="Type course name…"
-            style={{ width: '100%', padding: '11px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit' }}
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              value={courseName}
+              onChange={e => setCourseName(e.target.value)}
+              onBlur={() => setTimeout(() => setCourseResults([]), 150)}
+              placeholder="Type course name…"
+              style={{ width: '100%', padding: '11px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit' }}
+            />
+            {courseResults.length > 0 && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid #e0e0e0', borderRadius: '8px', marginTop: '4px', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+                {courseResults.map(name => (
+                  <div
+                    key={name}
+                    onMouseDown={() => { setCourseName(name); setCourseResults([]); }}
+                    style={{ padding: '10px 12px', fontSize: '14px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }}
+                  >{name}</div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '14px' }}>
             <div>
