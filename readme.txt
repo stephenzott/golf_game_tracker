@@ -24,6 +24,10 @@ Club Distance Tracking
   - Range shot type with reduced weighting (1/10th vs on-course shots)
   - Outlier filtering — shots below 60% of a club's mean are excluded once
     15+ shots are logged, keeping mishits from skewing recommendations
+  - IQR range display — Q1–Q3 typical range shown in Log and Bag tabs once
+    4+ shots are logged for a club
+  - Max toggle — swaps weighted average for all-time raw max per club;
+    available in both Log and Bag tabs
   - Smart club recommendations based on target distance
 
 My Bag

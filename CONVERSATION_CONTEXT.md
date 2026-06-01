@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 1, 2026 (outlier filtering)
+**Last Updated**: June 1, 2026 (range calculations)
 
 ---
 
@@ -30,6 +30,10 @@
 - Range shot type with 1/10th weighting (range shots count less than on-course shots)
 - Smart club recommendations — only suggests clubs that can reach the target distance
 - Outlier filtering — once 15+ shots are logged for a club, shots below 60% of the raw mean are excluded from both the weighted blended distance and the displayed average; only low outliers (mishits) are trimmed, not long shots; applies regardless of shot type (course, range, tracked)
+- IQR range display — Q1–Q3 typical range shown below the distance in both the Log and Bag tabs; uses outlier-filtered shots; requires 4+ shots to display; computed via linear interpolation
+- Max toggle — button in Log tab (above distance history) and Bag tab header; swaps weighted average for all-time raw max per club; max uses unfiltered shots across all types
+- Shot count displayed under club name in both Log and Bag tabs
+- "Update Base Distances" button moved to bottom of Bag tab club list
 
 ### My Bag
 - 13-slot customizable bag setup
