@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: May 31, 2026
+**Last Updated**: June 1, 2026
 
 ---
 
@@ -41,6 +41,7 @@
 - Hole yardage field on scorecard
 - Course name, rating, and slope recorded at round start (all optional)
 - Past courses shown as quick-select chips on the start screen
+- Course name autocomplete via Photon (photon.komoot.io) — OSM-based, free, no API key; queries fire after 3 characters with a 400ms debounce; results biased toward user's GPS location when available; dropdown dismisses on blur or selection
 - Delete button on each round in history view (removes from Firestore + UI instantly)
 
 ### Round Date Selection
