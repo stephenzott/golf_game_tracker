@@ -55,6 +55,7 @@ const GolfTrackerApp = () => {
   const [bagSlots, setBagSlots] = useState(Array.from({ length: 13 }, EMPTY_SLOT));
   const [bagEditSlots, setBagEditSlots] = useState([]);
   const [editingBag, setEditingBag] = useState(false);
+  const [showMax, setShowMax] = useState(false);
   // Stays false until the initial Firestore load completes, preventing saves
   // triggered by setUser() firing before getDoc() resolves
   const saveEnabled = useRef(false);
@@ -230,6 +231,27 @@ const GolfTrackerApp = () => {
     const shots = filterOutliers(distances[club]);
     const sum = shots.reduce((a, s) => a + s.value, 0);
     return (sum / shots.length).toFixed(1);
+  };
+
+  // Returns { q1, q3 } using linear interpolation on outlier-filtered shots,
+  // or null when fewer than 4 shots exist (not enough for a meaningful spread).
+  const getIQRRange = (club) => {
+    const shots = filterOutliers(distances[club] || []);
+    if (shots.length < 4) return null;
+    const sorted = [...shots].sort((a, b) => a.value - b.value);
+    const percentile = (p) => {
+      const idx = p * (sorted.length - 1);
+      const lo = Math.floor(idx);
+      const hi = Math.ceil(idx);
+      return sorted[lo].value + (sorted[hi].value - sorted[lo].value) * (idx - lo);
+    };
+    return { q1: Math.round(percentile(0.25)), q3: Math.round(percentile(0.75)) };
+  };
+
+  const getMaxDistance = (club) => {
+    const shots = distances[club] || [];
+    if (shots.length === 0) return null;
+    return Math.max(...shots.map(s => s.value));
   };
 
   // Finds the best club for a given target distance, then adjusts for wind and elevation
@@ -512,8 +534,23 @@ const GolfTrackerApp = () => {
             </div>
 
             {/* Distance History */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+              <button
+                onClick={() => setShowMax(v => !v)}
+                style={{
+                  padding: '8px 16px',
+                  background: showMax ? '#1a5f3d' : '#f5f5f5',
+                  color: showMax ? 'white' : '#888',
+                  border: 'none', borderRadius: '6px',
+                  fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+                }}
+              >Max</button>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
-              {clubs.filter(club => distances[club] && distances[club].length > 0).map(club => (
+              {clubs.filter(club => distances[club] && distances[club].length > 0).map(club => {
+                const iqr = !showMax ? getIQRRange(club) : null;
+                const maxDist = showMax ? getMaxDistance(club) : null;
+                return (
                 <div key={club} style={{
                   background: 'white',
                   borderRadius: '12px',
@@ -521,21 +558,29 @@ const GolfTrackerApp = () => {
                   boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                   borderLeft: '4px solid #1a5f3d'
                 }}>
-                  <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>
+                  <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: '600' }}>
                     {club}
                   </h3>
+                  <div style={{ fontSize: '12px', color: '#888', marginBottom: '12px' }}>
+                    {distances[club].length} shot{distances[club].length !== 1 ? 's' : ''} logged
+                  </div>
                   <div style={{
                     fontSize: '28px',
                     fontWeight: '700',
                     color: '#1a5f3d',
-                    marginBottom: '12px',
+                    marginBottom: iqr ? '4px' : '12px',
                     letterSpacing: '-1px'
                   }}>
-                    {getAverageDistance(club)} <span style={{ fontSize: '14px', color: '#888' }}>yds</span>
+                    {showMax
+                      ? <>{maxDist} <span style={{ fontSize: '14px', color: '#888' }}>yds max</span></>
+                      : <>{getAverageDistance(club)} <span style={{ fontSize: '14px', color: '#888' }}>yds</span></>
+                    }
                   </div>
-                  <div style={{ fontSize: '12px', color: '#888', marginBottom: '16px' }}>
-                    {distances[club].length} shot{distances[club].length !== 1 ? 's' : ''} logged
-                  </div>
+                  {iqr && (
+                    <div style={{ fontSize: '13px', color: '#888', marginBottom: '12px' }}>
+                      {iqr.q1}–{iqr.q3} yds typical range
+                    </div>
+                  )}
                   <div style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -580,7 +625,7 @@ const GolfTrackerApp = () => {
                     ))}
                   </div>
                 </div>
-              ))}
+              ); })}
             </div>
 
             {Object.keys(distances).filter(club => distances[club]?.length > 0).length === 0 && (
@@ -917,16 +962,23 @@ const GolfTrackerApp = () => {
                             background: idx % 2 === 0 ? '#fafafa' : 'white',
                           }}
                         >
-                          <span style={{ fontSize: '14px', fontWeight: '500' }}>{club}</span>
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '16px', fontWeight: '700', color: hasData ? '#1a5f3d' : '#ccc' }}>
-                              {displayValue}
-                            </div>
+                          <div>
+                            <div style={{ fontSize: '14px', fontWeight: '500' }}>{club}</div>
                             {userShots > 0 && (
                               <div style={{ fontSize: '10px', color: '#bbb' }}>
                                 {userShots} shot{userShots !== 1 ? 's' : ''}
                               </div>
                             )}
+                          </div>
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '16px', fontWeight: '700', color: hasData ? '#1a5f3d' : '#ccc' }}>
+                              {displayValue}
+                            </div>
+                            {(() => { const iqr = getIQRRange(club); return iqr ? (
+                              <div style={{ fontSize: '10px', color: '#bbb' }}>
+                                {iqr.q1}–{iqr.q3}
+                              </div>
+                            ) : null; })()}
                           </div>
                         </div>
                       );
