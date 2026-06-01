@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 1, 2026
+**Last Updated**: June 1, 2026 (outlier filtering)
 
 ---
 
@@ -29,6 +29,7 @@
 - Personalized base distances per club, blended with logged shots using weighted averaging
 - Range shot type with 1/10th weighting (range shots count less than on-course shots)
 - Smart club recommendations — only suggests clubs that can reach the target distance
+- Outlier filtering — once 15+ shots are logged for a club, shots below 60% of the raw mean are excluded from both the weighted blended distance and the displayed average; only low outliers (mishits) are trimmed, not long shots; applies regardless of shot type (course, range, tracked)
 
 ### My Bag
 - 13-slot customizable bag setup
@@ -72,6 +73,7 @@
 
 ### Phase 2:
 - Round summary view (next priority)
+- Knockdown shot type — differentiate full swings from intentional partial/knockdown shots; knockdown data to be available in the club suggestion tab alongside full-swing yardages
 - Chart visualization of distances per club
 - Export round data to CSV
 - Handicap differential calculation (uses rating + slope now stored on rounds)
