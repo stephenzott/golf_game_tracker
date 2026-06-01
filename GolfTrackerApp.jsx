@@ -879,11 +879,9 @@ const GolfTrackerApp = () => {
                   </div>
                 ) : (
                   <button
-                    onClick={handleEditBag}
-                    style={{ padding: '8px 14px', background: 'none', border: '1px solid #1a5f3d', borderRadius: '6px', fontSize: '13px', fontWeight: '600', color: '#1a5f3d', cursor: 'pointer' }}
-                  >
-                    {clubs.length > 0 ? 'Update Base Distances' : 'Add Base Distances'}
-                  </button>
+                    onClick={() => setShowMax(v => !v)}
+                    style={{ padding: '8px 14px', background: showMax ? '#1a5f3d' : '#f5f5f5', color: showMax ? 'white' : '#888', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
+                  >Max</button>
                 )}
               </div>
 
@@ -951,7 +949,8 @@ const GolfTrackerApp = () => {
                     {clubs.length > 0 ? clubs.map((club, idx) => {
                       const { blended, userShots } = getBlendedDistance(club);
                       const hasData = (club in baseDistances) || userShots > 0;
-                      const displayValue = hasData ? Math.round(blended) : 0;
+                      const maxDist = getMaxDistance(club);
+                      const displayValue = showMax && maxDist ? maxDist : (hasData ? Math.round(blended) : 0);
                       return (
                         <div
                           key={club}
@@ -988,6 +987,14 @@ const GolfTrackerApp = () => {
                       </p>
                     )}
                   </div>
+                  {!editingBag && (
+                    <button
+                      onClick={handleEditBag}
+                      style={{ marginTop: '20px', width: '100%', padding: '10px', background: 'none', border: '1px solid #1a5f3d', borderRadius: '6px', fontSize: '13px', fontWeight: '600', color: '#1a5f3d', cursor: 'pointer' }}
+                    >
+                      {clubs.length > 0 ? 'Update Base Distances' : 'Add Base Distances'}
+                    </button>
+                  )}
                 </>
               )}
             </div>
