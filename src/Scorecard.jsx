@@ -260,9 +260,93 @@ const Scorecard = ({ user, db }) => {
     const totalPutts = played.reduce((s, h) => s + (h.putts ?? 0), 0);
     const hazards = played.filter(h => h.hazard).length;
     const bunkers = played.filter(h => h.bunker).length;
+    const threePutts = played.filter(h => (h.putts ?? 0) >= 3).length;
+    const missedGIR = played.filter(h => h.gir === false);
+    const scrambling = missedGIR.filter(h => h.score <= h.par).length;
+    const handicapDiff = round.rating && round.slope
+      ? ((totalScore - round.rating) * 113 / round.slope).toFixed(1)
+      : null;
+
+    const scoringBreakdown = [
+      { label: 'Eagle', color: '#f59e0b', count: played.filter(h => h.score <= h.par - 2).length },
+      { label: 'Birdie', color: '#ef4444', count: played.filter(h => h.score === h.par - 1).length },
+      { label: 'Par', color: '#1a1a1a', count: played.filter(h => h.score === h.par).length },
+      { label: 'Bogey', color: '#3b82f6', count: played.filter(h => h.score === h.par + 1).length },
+      { label: 'Double', color: '#7c3aed', count: played.filter(h => h.score === h.par + 2).length },
+      { label: 'Triple+', color: '#9f1239', count: played.filter(h => h.score >= h.par + 3).length },
+    ].filter(c => c.count > 0);
+
+    const parTypes = [3, 4, 5].map(par => {
+      const holes = played.filter(h => h.par === par);
+      if (holes.length === 0) return null;
+      const totalDiff = holes.reduce((s, h) => s + (h.score - h.par), 0);
+      return { par, count: holes.length, totalDiff };
+    }).filter(Boolean);
+
+    const currentRoundId = round.id ?? roundDocId;
+    const courseHistory = round.course?.name
+      ? pastRounds.filter(r =>
+          r.course?.name?.toLowerCase() === round.course.name.toLowerCase() &&
+          r.id !== currentRoundId
+        )
+      : [];
+
+    let histAvgs = null;
+    if (courseHistory.length > 0) {
+      const hStats = courseHistory.map(r => {
+        const p = r.holeData.filter(h => h.score !== null);
+        const drv = p.filter(h => h.par !== 3);
+        const tp = p.reduce((s, h) => s + (h.putts ?? 0), 0);
+        const missedG = p.filter(h => h.gir === false);
+        return {
+          fir: drv.length ? drv.filter(h => h.fairway === true).length / drv.length : null,
+          gir: p.length ? p.filter(h => h.gir === true).length / p.length : null,
+          scrambling: missedG.length ? missedG.filter(h => h.score <= h.par).length / missedG.length : null,
+          totalPutts: tp,
+          avgPutts: p.length ? tp / p.length : null,
+          threePutts: p.filter(h => (h.putts ?? 0) >= 3).length,
+          hazards: p.filter(h => h.hazard).length,
+          bunkers: p.filter(h => h.bunker).length,
+          parDiffs: [3, 4, 5].reduce((acc, par) => {
+            const holes = p.filter(h => h.par === par);
+            if (holes.length) acc[par] = holes.reduce((s, h) => s + (h.score - h.par), 0);
+            return acc;
+          }, {}),
+        };
+      });
+
+      const avgNum = (key) => {
+        const vals = hStats.map(s => s[key]).filter(v => v !== null);
+        return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+      };
+      const fmtPct = (key) => { const v = avgNum(key); return v !== null ? `avg ${Math.round(v * 100)}%` : null; };
+      const fmtNum = (key, dec) => { const v = avgNum(key); return v !== null ? `avg ${v.toFixed(dec)}` : null; };
+
+      const parAvgs = {};
+      [3, 4, 5].forEach(par => {
+        const vals = hStats.map(s => s.parDiffs[par]).filter(v => v !== undefined);
+        if (vals.length) parAvgs[par] = vals.reduce((a, b) => a + b, 0) / vals.length;
+      });
+
+      histAvgs = {
+        fir: fmtPct('fir'),
+        gir: fmtPct('gir'),
+        scrambling: fmtPct('scrambling'),
+        totalPutts: fmtNum('totalPutts', 0),
+        avgPutts: fmtNum('avgPutts', 1),
+        threePutts: fmtNum('threePutts', 1),
+        hazards: fmtNum('hazards', 1),
+        bunkers: fmtNum('bunkers', 1),
+        parAvgs,
+        n: courseHistory.length,
+      };
+    }
 
     return (
       <div style={{ padding: '20px 16px 40px', maxWidth: '600px', margin: '0 auto' }}>
+        {pastRounds.length > 0 && (
+          <button onClick={() => { setRound(null); setShowHistory(true); }} style={{ background: 'none', border: 'none', color: '#1a5f3d', fontSize: '14px', fontWeight: '600', cursor: 'pointer', padding: '0 0 16px', display: 'block' }}>← History</button>
+        )}
         <div style={{ background: 'white', borderRadius: '14px', padding: '24px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
           <p style={{ margin: '0 0 6px', fontSize: '12px', color: '#aaa', fontWeight: '700', letterSpacing: '0.5px' }}>ROUND COMPLETE · {round.date}</p>
           {round.course?.name && (
@@ -272,30 +356,75 @@ const Scorecard = ({ user, db }) => {
             {diff === 0 ? 'E' : diff > 0 ? `+${diff}` : diff}
           </div>
           <p style={{ margin: '6px 0 0', fontSize: '15px', color: '#888' }}>{totalScore} strokes · {totalPar} par</p>
+          {handicapDiff !== null && (
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#aaa' }}>Differential: {handicapDiff > 0 ? '+' : ''}{handicapDiff}</p>
+          )}
         </div>
+
+        {scoringBreakdown.length > 0 && (
+          <div style={{ background: 'white', borderRadius: '14px', padding: '16px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <p style={{ margin: '0 0 12px', fontSize: '12px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>SCORING</p>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {scoringBreakdown.map(c => (
+                <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f8f8f8', borderRadius: '20px', padding: '6px 12px' }}>
+                  <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: c.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: '14px', fontWeight: '700', color: '#1a1a1a' }}>{c.count}</span>
+                  <span style={{ fontSize: '12px', color: '#888' }}>{c.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '14px' }}>
           {[
-            { label: 'FIR', value: drivingHoles.length ? `${firCount}/${drivingHoles.length}` : 'N/A' },
-            { label: 'GIR', value: `${girCount}/${played.length}` },
-            { label: 'Total Putts', value: totalPutts },
-            { label: 'Avg Putts', value: played.length ? (totalPutts / played.length).toFixed(1) : '--' },
-            { label: 'Hazards', value: hazards },
-            { label: 'Bunkers', value: bunkers },
+            { label: 'FIR', value: drivingHoles.length ? `${firCount}/${drivingHoles.length}` : 'N/A', hist: histAvgs?.fir },
+            { label: 'GIR', value: `${girCount}/${played.length}`, hist: histAvgs?.gir },
+            { label: 'Scrambling', value: missedGIR.length ? `${scrambling}/${missedGIR.length}` : 'N/A', hist: histAvgs?.scrambling },
+            { label: 'Total Putts', value: totalPutts, hist: histAvgs?.totalPutts },
+            { label: 'Avg Putts', value: played.length ? (totalPutts / played.length).toFixed(1) : '--', hist: histAvgs?.avgPutts },
+            { label: '3-Putts', value: threePutts, hist: histAvgs?.threePutts },
+            { label: 'Hazards', value: hazards, hist: histAvgs?.hazards },
+            { label: 'Bunkers', value: bunkers, hist: histAvgs?.bunkers },
           ].map(s => (
             <div key={s.label} style={{ background: 'white', borderRadius: '10px', padding: '14px 8px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
               <p style={{ margin: '0 0 4px', fontSize: '10px', color: '#aaa', fontWeight: '700', letterSpacing: '0.5px' }}>{s.label}</p>
               <p style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#1a5f3d' }}>{s.value}</p>
+              {s.hist && <p style={{ margin: '3px 0 0', fontSize: '10px', color: '#ccc' }}>{s.hist}</p>}
             </div>
           ))}
         </div>
+
+        {parTypes.length > 0 && (
+          <div style={{ background: 'white', borderRadius: '14px', padding: '16px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <p style={{ margin: '0 0 12px', fontSize: '12px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>BY PAR</p>
+            <div style={{ display: 'grid', gridTemplateColumns: parTypes.map(() => '1fr').join(' '), gap: '10px' }}>
+              {parTypes.map(({ par, count, totalDiff }) => {
+                const hAvg = histAvgs?.parAvgs[par];
+                const hStr = hAvg !== undefined
+                  ? (hAvg === 0 ? 'avg E' : `avg ${hAvg > 0 ? '+' : ''}${hAvg.toFixed(1)}`)
+                  : null;
+                return (
+                  <div key={par} style={{ textAlign: 'center', padding: '12px 8px', background: '#f8f8f8', borderRadius: '10px' }}>
+                    <p style={{ margin: '0 0 4px', fontSize: '10px', color: '#aaa', fontWeight: '700', letterSpacing: '0.5px' }}>PAR {par}</p>
+                    <p style={{ margin: '0 0 2px', fontSize: '22px', fontWeight: '700', color: totalDiff === 0 ? '#1a1a1a' : totalDiff < 0 ? '#ef4444' : '#1a5f3d' }}>
+                      {totalDiff === 0 ? 'E' : `${totalDiff > 0 ? '+' : ''}${totalDiff}`}
+                    </p>
+                    <p style={{ margin: 0, fontSize: '11px', color: '#aaa' }}>{count} hole{count !== 1 ? 's' : ''}</p>
+                    {hStr && <p style={{ margin: '3px 0 0', fontSize: '10px', color: '#ccc' }}>{hStr}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div style={{ background: 'white', borderRadius: '14px', padding: '16px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', overflowX: 'auto' }}>
           <p style={{ margin: '0 0 12px', fontSize: '12px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>HOLE BY HOLE</p>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '360px' }}>
             <thead>
               <tr>
-                {['#', 'Par', 'Yds', 'Score', 'FIR', 'GIR', 'Putts', 'Haz', 'Bkr'].map(h => (
+                {['#', 'Par', 'Yds', 'Score', 'FIR', 'GIR', 'Putts', 'Pen'].map(h => (
                   <th key={h} style={{ padding: '4px 6px', color: '#bbb', fontWeight: '700', textAlign: 'center', fontSize: '11px' }}>{h}</th>
                 ))}
               </tr>
@@ -316,8 +445,7 @@ const Scorecard = ({ user, db }) => {
                     {h.gir === null ? '—' : (h.gir ? '✓' : '✗')}
                   </td>
                   <td style={{ padding: '6px', textAlign: 'center', color: '#666' }}>{h.putts ?? '—'}</td>
-                  <td style={{ padding: '6px', textAlign: 'center' }}>{h.hazard ? '⚠️' : ''}</td>
-                  <td style={{ padding: '6px', textAlign: 'center' }}>{h.bunker ? '🟤' : ''}</td>
+                  <td style={{ padding: '6px', textAlign: 'center' }}>{h.hazard ? '⚠️' : ''}{h.bunker ? '🟤' : ''}</td>
                 </tr>
               ))}
             </tbody>
@@ -352,7 +480,7 @@ const Scorecard = ({ user, db }) => {
               const par = played.reduce((s, h) => s + h.par, 0);
               const d = total - par;
               return (
-                <div key={r.id} style={{ background: 'white', borderRadius: '12px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div key={r.id} onClick={() => { setRound(r); setShowHistory(false); }} style={{ background: 'white', borderRadius: '12px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
                   <div>
                     <p style={{ margin: '0 0 2px', fontSize: '14px', fontWeight: '600' }}>{r.course?.name ?? r.date}</p>
                     <p style={{ margin: 0, fontSize: '12px', color: '#aaa' }}>{r.course?.name ? `${r.date} · ` : ''}{r.holes} holes</p>
