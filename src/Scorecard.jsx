@@ -88,6 +88,8 @@ const Scorecard = ({ user, db }) => {
   const [ghostMode, setGhostMode] = useState('none');
   const [courseResults, setCourseResults] = useState([]);
   const [userLatLng, setUserLatLng] = useState(null);
+  const [isEditingRound, setIsEditingRound] = useState(false);
+  const [preEditRound, setPreEditRound] = useState(null);
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
@@ -199,6 +201,7 @@ const Scorecard = ({ user, db }) => {
 
   // Commit current hole (default score/putts if untouched) then navigate
   const goToHole = async (idx) => {
+    if (isEditingRound) { setCurrentHole(idx); return; }
     const data = [...round.holeData];
     const h = data[currentHole];
     data[currentHole] = {
@@ -230,6 +233,19 @@ const Scorecard = ({ user, db }) => {
     setCurrentHole(0);
   };
 
+  const saveEdits = async () => {
+    await persist(round, roundDocId);
+    setPastRounds(prev => prev.map(r => r.id === roundDocId ? { id: roundDocId, ...round } : r));
+    setIsEditingRound(false);
+    setPreEditRound(null);
+  };
+
+  const cancelEdit = () => {
+    setRound(preEditRound);
+    setIsEditingRound(false);
+    setPreEditRound(null);
+  };
+
   const resetToStart = () => {
     setRound(null);
     setRoundDocId(null);
@@ -249,7 +265,7 @@ const Scorecard = ({ user, db }) => {
   }
 
   // ── Round summary ─────────────────────────────────────────────────────────
-  if (round?.completed && !round?.abandoned) {
+  if (round?.completed && !round?.abandoned && !isEditingRound) {
     const played = round.holeData.filter(h => h.score !== null);
     const totalScore = played.reduce((s, h) => s + h.score, 0);
     const totalPar = played.reduce((s, h) => s + h.par, 0);
@@ -452,6 +468,17 @@ const Scorecard = ({ user, db }) => {
           </table>
         </div>
 
+        <button
+          onClick={() => {
+            setRoundDocId(round.id ?? roundDocId);
+            setPreEditRound({ ...round, holeData: round.holeData.map(h => ({ ...h })) });
+            setIsEditingRound(true);
+            setCurrentHole(round.holes - 1);
+          }}
+          style={{ width: '100%', padding: '16px', background: 'white', color: '#1a5f3d', border: '1px solid #1a5f3d', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', marginBottom: '10px' }}
+        >
+          Edit Round
+        </button>
         <button
           onClick={resetToStart}
           style={{ width: '100%', padding: '16px', background: '#1a5f3d', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}
@@ -677,9 +704,9 @@ const Scorecard = ({ user, db }) => {
   return (
     <div style={{ paddingBottom: '40px' }}>
       {/* Green header strip */}
-      <div style={{ padding: '14px 20px 16px', background: '#1a5f3d', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ padding: '14px 20px 16px', background: isEditingRound ? '#1a3a5f' : '#1a5f3d', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <p style={{ margin: 0, fontSize: '11px', opacity: 0.75, fontWeight: '600', letterSpacing: '0.5px' }}>HOLE</p>
+          <p style={{ margin: 0, fontSize: '11px', opacity: 0.75, fontWeight: '600', letterSpacing: '0.5px' }}>{isEditingRound ? 'EDITING · HOLE' : 'HOLE'}</p>
           <p style={{ margin: 0, fontSize: '32px', fontWeight: '700', letterSpacing: '-1.5px', lineHeight: 1 }}>
             {currentHole + 1}
             <span style={{ fontSize: '14px', opacity: 0.65, fontWeight: '400' }}> / {round.holes}</span>
@@ -799,18 +826,18 @@ const Scorecard = ({ user, db }) => {
             >← Prev</button>
           )}
           <button
-            onClick={isLast ? finishRound : () => goToHole(currentHole + 1)}
-            style={{ padding: '16px', background: '#1a5f3d', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}
+            onClick={isLast ? (isEditingRound ? saveEdits : finishRound) : () => goToHole(currentHole + 1)}
+            style={{ padding: '16px', background: isEditingRound ? '#1a3a5f' : '#1a5f3d', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}
           >
-            {isLast ? 'Finish Round ✓' : 'Next Hole →'}
+            {isLast ? (isEditingRound ? 'Save Changes ✓' : 'Finish Round ✓') : 'Next Hole →'}
           </button>
         </div>
 
         <button
-          onClick={abandonRound}
+          onClick={isEditingRound ? cancelEdit : abandonRound}
           style={{ width: '100%', padding: '12px', background: 'none', border: '1px solid #eee', borderRadius: '8px', fontSize: '13px', color: '#bbb', cursor: 'pointer', marginBottom: '20px' }}
         >
-          Abandon Round
+          {isEditingRound ? 'Cancel Edit' : 'Abandon Round'}
         </button>
 
         {/* Mini scorecard dots */}
