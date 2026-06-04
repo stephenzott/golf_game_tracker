@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 4, 2026 (edit round)
+**Last Updated**: June 4, 2026 (auto GIR)
 
 ---
 
@@ -48,6 +48,7 @@
 - Past courses shown as quick-select chips on the start screen
 - Course name autocomplete via Photon (photon.komoot.io) — OSM-based, free, no API key; queries fire after 3 characters with a 400ms debounce; results biased toward user's GPS location when available; dropdown dismisses on blur or selection
 - Delete button on each round in history view (removes from Firestore + UI instantly)
+- GIR is auto-derived from score and putts using `(score - putts) <= (par - 2)`; no manual toggle — computed whenever both values are set
 
 ### Round Summary
 - Shown immediately after finishing a round and when selecting any past round from history
