@@ -287,6 +287,9 @@ const Scorecard = ({ user, db }) => {
     const threePutts = played.filter(h => (h.putts ?? 0) >= 3).length;
     const missedGIR = played.filter(h => h.gir === false);
     const scrambling = missedGIR.filter(h => h.score <= h.par).length;
+    const bounceBackOpps = played.filter((_, i) => i > 0 && played[i - 1].score > played[i - 1].par);
+    const bounceBackCount = bounceBackOpps.filter(h => h.score <= h.par).length;
+    const bounceBackPct = bounceBackOpps.length ? Math.round(bounceBackCount / bounceBackOpps.length * 100) : null;
     const handicapDiff = round.rating && round.slope
       ? ((totalScore - round.rating) * 113 / round.slope).toFixed(1)
       : null;
@@ -322,10 +325,12 @@ const Scorecard = ({ user, db }) => {
         const drv = p.filter(h => h.par !== 3);
         const tp = p.reduce((s, h) => s + (h.putts ?? 0), 0);
         const missedG = p.filter(h => h.gir === false);
+        const bbOpps = p.filter((_, i) => i > 0 && p[i - 1].score > p[i - 1].par);
         return {
           fir: drv.length ? drv.filter(h => h.fairway === true).length / drv.length : null,
           gir: p.length ? p.filter(h => h.gir === true).length / p.length : null,
           scrambling: missedG.length ? missedG.filter(h => h.score <= h.par).length / missedG.length : null,
+          bounceBack: bbOpps.length ? bbOpps.filter(h => h.score <= h.par).length / bbOpps.length : null,
           totalPutts: tp,
           avgPutts: p.length ? tp / p.length : null,
           threePutts: p.filter(h => (h.putts ?? 0) >= 3).length,
@@ -356,6 +361,7 @@ const Scorecard = ({ user, db }) => {
         fir: fmtPct('fir'),
         gir: fmtPct('gir'),
         scrambling: fmtPct('scrambling'),
+        bounceBack: fmtPct('bounceBack'),
         totalPutts: fmtNum('totalPutts', 0),
         avgPutts: fmtNum('avgPutts', 1),
         threePutts: fmtNum('threePutts', 1),
@@ -402,18 +408,26 @@ const Scorecard = ({ user, db }) => {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '14px' }}>
           {[
-            { label: 'FIR', value: drivingHoles.length ? `${firCount}/${drivingHoles.length}` : 'N/A', hist: histAvgs?.fir },
-            { label: 'GIR', value: `${girCount}/${played.length}`, hist: histAvgs?.gir },
-            { label: 'Scrambling', value: missedGIR.length ? `${scrambling}/${missedGIR.length}` : 'N/A', hist: histAvgs?.scrambling },
-            { label: 'Total Putts', value: totalPutts, hist: histAvgs?.totalPutts },
+            { label: 'FIR', value: drivingHoles.length ? `${Math.round(firCount / drivingHoles.length * 100)}%` : 'N/A', frac: drivingHoles.length ? `${firCount}/${drivingHoles.length}` : null, hist: histAvgs?.fir },
+            { label: 'GIR', value: `${Math.round(girCount / played.length * 100)}%`, frac: `${girCount}/${played.length}`, hist: histAvgs?.gir },
+            { label: 'Scrambling', value: missedGIR.length ? `${Math.round(scrambling / missedGIR.length * 100)}%` : 'N/A', frac: missedGIR.length ? `${scrambling}/${missedGIR.length}` : null, hist: histAvgs?.scrambling },
+            { label: 'Bounce Back', value: bounceBackPct !== null ? `${bounceBackPct}%` : 'N/A', hist: histAvgs?.bounceBack },
+            { label: 'Putts', value: totalPutts, hist: histAvgs?.totalPutts },
             { label: 'Avg Putts', value: played.length ? (totalPutts / played.length).toFixed(1) : '--', hist: histAvgs?.avgPutts },
-            { label: '3-Putts', value: threePutts, hist: histAvgs?.threePutts },
             { label: 'Hazards', value: hazards, hist: histAvgs?.hazards },
             { label: 'Bunkers', value: bunkers, hist: histAvgs?.bunkers },
+            { label: '3-Putts', value: threePutts, hist: histAvgs?.threePutts },
           ].map(s => (
             <div key={s.label} style={{ background: 'white', borderRadius: '10px', padding: '14px 8px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
               <p style={{ margin: '0 0 4px', fontSize: '10px', color: '#aaa', fontWeight: '700', letterSpacing: '0.5px' }}>{s.label}</p>
-              <p style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#1a5f3d' }}>{s.value}</p>
+              {s.frac ? (
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '5px' }}>
+                  <span style={{ fontSize: '20px', fontWeight: '700', color: '#1a5f3d' }}>{s.value}</span>
+                  <span style={{ fontSize: '11px', color: '#ccc' }}>{s.frac}</span>
+                </div>
+              ) : (
+                <p style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#1a5f3d' }}>{s.value}</p>
+              )}
               {s.hist && <p style={{ margin: '3px 0 0', fontSize: '10px', color: '#ccc' }}>{s.hist}</p>}
             </div>
           ))}
