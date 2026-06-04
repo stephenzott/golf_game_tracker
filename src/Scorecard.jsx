@@ -184,7 +184,15 @@ const Scorecard = ({ user, db }) => {
   const updateHole = (field, value) => {
     setRound(prev => {
       const data = [...prev.holeData];
-      data[currentHole] = { ...data[currentHole], [field]: value };
+      const updated = { ...data[currentHole], [field]: value };
+      if (field === 'score' || field === 'putts') {
+        const score = field === 'score' ? value : updated.score;
+        const putts = field === 'putts' ? value : updated.putts;
+        if (score !== null && putts !== null) {
+          updated.gir = (score - putts) <= (updated.par - 2);
+        }
+      }
+      data[currentHole] = updated;
       return { ...prev, holeData: data };
     });
   };
@@ -786,10 +794,9 @@ const Scorecard = ({ user, db }) => {
           />
         </div>
 
-        {/* Fairway + GIR */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+        {/* Fairway */}
+        <div style={{ marginBottom: '10px' }}>
           <TogglePair label="FAIRWAY HIT" field="fairway" disabled={hole.par === 3} />
-          <TogglePair label="GREEN IN REG" field="gir" disabled={false} />
         </div>
 
         {/* Hazard + Bunker */}
