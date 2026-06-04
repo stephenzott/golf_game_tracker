@@ -35,11 +35,33 @@ My Bag
   - Sorted by distance descending on save
 
 Scorekeeping
-  - Per-hole stat tracking
-  - Course name, rating, and slope recorded at round start
+  - Per-hole stat tracking: score, putts, fairway, GIR, hazard, bunker, yardage
+  - GIR auto-derived from score and putts — no manual toggle needed
+  - Course name, rating, and slope recorded at round start (all optional)
+  - Course name autocomplete via Photon (OSM-based, free, no API key)
   - Past courses shown as quick-select chips
   - Round history with delete support
   - Date picker at round start — defaults to today, supports logging past rounds
+
+Round Summary
+  - Shown after finishing a round and when viewing any past round from history
+  - Score vs par, handicap differential (when rating + slope present)
+  - Scoring breakdown: Eagle, Birdie, Par, Bogey, Double, Triple+
+  - Stat tiles in three rows:
+      Row 1: FIR %, GIR %, Scrambling % (each shown as % with raw fraction)
+      Row 2: Bounce Back %, Total Putts, Avg Putts
+      Row 3: Hazards, Bunkers, 3-Putts
+  - Bounce Back %: par or better immediately following a bogey or worse
+  - Performance by par type (Par 3 / 4 / 5)
+  - Course history comparison: when past rounds exist at the same course,
+    each stat shows a historical average below it
+  - Full hole-by-hole table with score circles, FIR, GIR, putts, penalties
+
+Edit Round
+  - "Edit Round" button on the round summary
+  - Opens hole editor in edit mode (navy header to distinguish from live play)
+  - Starts on the last hole; mini scorecard lets you jump to any hole
+  - Save persists to Firestore; Cancel restores the original round
 
 Ghost Rounds
   - When starting a round at a previously played course, choose a ghost mode:
@@ -61,12 +83,10 @@ PWA
 Planned Features
 ----------------
 Phase 2 (Near-term):
-  - Round summary view
   - Knockdown shot type — log partial swings separately from full swings,
     with knockdown yardages available in the club suggestion tab
   - Club distance chart visualization
   - Export round data to CSV
-  - Handicap differential calculation (uses rating + slope already stored)
   - "Post to GHIN" button — deep links to ghin.com for manual posting after
     round completion (no official API without USGA partnership)
 
