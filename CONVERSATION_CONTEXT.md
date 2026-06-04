@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 4, 2026 (auto GIR)
+**Last Updated**: June 4, 2026 (bounce back %, round summary tile layout)
 
 ---
 
@@ -52,7 +52,10 @@
 
 ### Round Summary
 - Shown immediately after finishing a round and when selecting any past round from history
-- Displays total score vs par, handicap differential (when rating + slope are present), scoring breakdown (Eagle/Birdie/Par/Bogey/Double/Triple+), FIR, GIR, scrambling, total putts, avg putts, 3-putts, hazards, bunkers, and performance by par type (3/4/5)
+- Displays total score vs par, handicap differential (when rating + slope are present), scoring breakdown (Eagle/Birdie/Par/Bogey/Double/Triple+), and performance by par type (3/4/5)
+- Stat tiles arranged in three rows: Row 1 — FIR, GIR, Scrambling; Row 2 — Bounce Back %, Putts, Avg Putts; Row 3 — Hazards, Bunkers, 3-Putts
+- FIR, GIR, and Scrambling display as a percentage (e.g. `75%`) with the raw fraction shown to the right in lighter text (e.g. `7/9`)
+- Bounce Back %: percentage of holes where player made par or better immediately after a bogey or worse; shown as N/A when no opportunities exist
 - Course comparison: when other rounds exist at the same course, each stat shows a historical average below it for context
 - Full hole-by-hole table with score circles, FIR, GIR, putts, and penalties
 
