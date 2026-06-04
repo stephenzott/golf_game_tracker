@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 1, 2026 (range calculations)
+**Last Updated**: June 4, 2026 (edit round)
 
 ---
 
@@ -49,6 +49,20 @@
 - Course name autocomplete via Photon (photon.komoot.io) — OSM-based, free, no API key; queries fire after 3 characters with a 400ms debounce; results biased toward user's GPS location when available; dropdown dismisses on blur or selection
 - Delete button on each round in history view (removes from Firestore + UI instantly)
 
+### Round Summary
+- Shown immediately after finishing a round and when selecting any past round from history
+- Displays total score vs par, handicap differential (when rating + slope are present), scoring breakdown (Eagle/Birdie/Par/Bogey/Double/Triple+), FIR, GIR, scrambling, total putts, avg putts, 3-putts, hazards, bunkers, and performance by par type (3/4/5)
+- Course comparison: when other rounds exist at the same course, each stat shows a historical average below it for context
+- Full hole-by-hole table with score circles, FIR, GIR, putts, and penalties
+
+### Edit Round
+- "Edit Round" button on the round summary (outlined green, above "Start New Round")
+- Opens the existing hole editor UI in edit mode — header turns navy with "EDITING · HOLE" label to distinguish from a live round
+- Starts on the last hole (common case: fixing the final hole); mini scorecard at the bottom lets you jump to any hole
+- Navigating between holes in edit mode does not apply score/putts defaults
+- "Save Changes ✓" on the last hole persists edits to Firestore and updates in-memory history
+- "Cancel Edit" restores the original round without writing to Firestore
+
 ### Round Date Selection
 - Date picker on the start screen defaults to today, capped at today (no future dates)
 - Allows logging rounds played in the past after the fact
@@ -76,7 +90,6 @@
 ## Next Possible Features
 
 ### Phase 2:
-- Round summary view (next priority)
 - Knockdown shot type — differentiate full swings from intentional partial/knockdown shots; knockdown data to be available in the club suggestion tab alongside full-swing yardages
 - Chart visualization of distances per club
 - Export round data to CSV
