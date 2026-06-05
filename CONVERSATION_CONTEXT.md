@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 4, 2026 (bounce back %, round summary tile layout)
+**Last Updated**: June 5, 2026 (past courses dropdown, deployment workflow documented)
 
 ---
 
@@ -16,6 +16,8 @@
 - PWA manifest + custom app icon (installable on home screen)
 
 **Hosting**: Free tier only — user pays for Claude, nothing else.
+
+**Deployment**: Always `npm run build && firebase deploy` from `main`. Never run `firebase deploy` alone — it would ship stale `dist` contents. Feature branches are tested locally only (`npm run dev`).
 
 ---
 
@@ -45,7 +47,7 @@
 - Per-hole stat tracking tab
 - Hole yardage field on scorecard
 - Course name, rating, and slope recorded at round start (all optional)
-- Past courses shown as quick-select chips on the start screen
+- Past courses shown as a dropdown select on the start screen
 - Course name autocomplete via Photon (photon.komoot.io) — OSM-based, free, no API key; queries fire after 3 characters with a 400ms debounce; results biased toward user's GPS location when available; dropdown dismisses on blur or selection
 - Delete button on each round in history view (removes from Firestore + UI instantly)
 - GIR is auto-derived from score and putts using `(score - putts) <= (par - 2)`; no manual toggle — computed whenever both values are set
