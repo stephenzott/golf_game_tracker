@@ -564,15 +564,16 @@ const Scorecard = ({ user, db }) => {
           <p style={{ margin: '0 0 12px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>COURSE (optional)</p>
 
           {pastCourses.length > 0 && (
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            <select
+              value={courseName}
+              onChange={e => setCourseName(e.target.value)}
+              style={{ width: '100%', padding: '11px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit', color: courseName ? '#1a1a1a' : '#aaa', background: 'white', marginBottom: '12px', cursor: 'pointer' }}
+            >
+              <option value="">Select a previous course…</option>
               {pastCourses.map(c => (
-                <button
-                  key={c}
-                  onClick={() => setCourseName(c)}
-                  style={{ padding: '6px 12px', background: courseName === c ? '#1a5f3d' : '#f0f4f1', border: `1px solid ${courseName === c ? '#1a5f3d' : '#c8ddd2'}`, borderRadius: '20px', fontSize: '13px', color: courseName === c ? 'white' : '#1a5f3d', fontWeight: '600', cursor: 'pointer' }}
-                >{c}</button>
+                <option key={c} value={c}>{c}</option>
               ))}
-            </div>
+            </select>
           )}
 
           <div style={{ position: 'relative' }}>
@@ -623,7 +624,7 @@ const Scorecard = ({ user, db }) => {
             </div>
           </div>
 
-          <div style={{ marginTop: '14px' }}>
+          <div style={{ marginTop: '14px', overflow: 'hidden' }}>
             <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px', marginBottom: '6px' }}>DATE</label>
             <input
               type="date"
