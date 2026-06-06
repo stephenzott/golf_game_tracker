@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 5, 2026 (past courses dropdown, deployment workflow documented)
+**Last Updated**: June 5, 2026 (service worker added for silent PWA auto-updates)
 
 ---
 
@@ -90,6 +90,8 @@
 - Installable from browser to home screen
 - Custom golf flag app icon
 - PWA manifest configured
+- Service worker (`public/sw.js`) handles silent auto-updates: new SW calls `skipWaiting()` on install, claims clients on activate, and the app reloads silently when a new version is deployed — no manual delete-and-reinstall needed
+- Navigation requests use network-first (always fresh HTML); hashed assets use cache-first; Firebase/Google API requests are bypassed entirely
 
 ---
 
