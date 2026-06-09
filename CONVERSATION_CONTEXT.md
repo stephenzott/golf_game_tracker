@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 5, 2026 (service worker added for silent PWA auto-updates)
+**Last Updated**: June 9, 2026 (Gemini AI coaching summary added to round summary screen)
 
 ---
 
@@ -17,7 +17,7 @@
 
 **Hosting**: Free tier only — user pays for Claude, nothing else.
 
-**Deployment**: Always `npm run build && firebase deploy` from `main`. Never run `firebase deploy` alone — it would ship stale `dist` contents. Feature branches are tested locally only (`npm run dev`).
+**Deployment**: Always `npm run build && firebase deploy` from `main`. Never run `firebase deploy` alone — it would ship stale `dist` contents. This has caused bugs in the past (e.g. a model name change not making it to production because build was skipped). Feature branches are tested locally only (`npm run dev`).
 
 ---
 
@@ -60,6 +60,15 @@
 - Bounce Back %: percentage of holes where player made par or better immediately after a bogey or worse; shown as N/A when no opportunities exist
 - Course comparison: when other rounds exist at the same course, each stat shows a historical average below it for context
 - Full hole-by-hole table with score circles, FIR, GIR, putts, and penalties
+
+### AI Coaching Summary
+- "✨ AI Coaching Summary" button appears at the bottom of the round summary screen, above the Edit/Start New Round buttons
+- Gated to `szott19@gmail.com` only via `ALLOWED_AI_USERS` in `src/geminiSummary.js` — invisible to other users
+- Calls Gemini 2.5 Flash (`gemini-2.5-flash`) directly from the browser using `VITE_GEMINI_API_KEY` stored in `.env.local` (gitignored)
+- Prompt sends full hole-by-hole data (score, putts, FIR, GIR, hazard, bunker) plus round-level stats; asks Gemini to respond as a golf coach in under 300 words
+- Response displays inline; "Regenerate" link clears it so the button reappears
+- API key stored in `.env.local` as `VITE_GEMINI_API_KEY`; key is visible in the client bundle — quota cap on the key in Google Cloud Console is recommended
+- Before expanding to beta testers, check rate usage at: https://aistudio.google.com/rate-limit?timeRange=last-28-days&project=gen-lang-client-0026826837
 
 ### Edit Round
 - "Edit Round" button on the round summary (outlined green, above "Start New Round")
