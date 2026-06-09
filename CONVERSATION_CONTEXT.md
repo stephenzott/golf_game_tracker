@@ -63,6 +63,7 @@
 - Course comparison: when other rounds exist at the same course, each stat shows a historical average below it for context
 - Full hole-by-hole table with score circles, FIR, GIR, putts, and penalties
 - **Inline tees editor** in the summary header (below course name) — editable input field; saves to Firestore on blur; allows adding/editing tees for rounds already entered; shows "Add tees…" placeholder when blank
+- **Post to GHIN button** — appears only when a round was just finished (`justFinished` state); not shown when viewing history; opens ghin.com in a new tab for manual score entry; no official GHIN API exists so data cannot be pushed automatically
 
 ### AI Coaching Summary
 - "✨ AI Coaching Summary" button appears at the bottom of the round summary screen, above the Edit/Start New Round buttons
@@ -116,7 +117,7 @@
 - Chart visualization of distances per club
 - Export round data to CSV
 - Handicap differential calculation (uses rating + slope now stored on rounds)
-- "Post to GHIN" button after round completion — deep links to ghin.com for manual posting (no official API without USGA partnership)
+- ~~"Post to GHIN" button~~ ✓ shipped
 
 ### Phase 3: GPS & spatial
 - **GPS shot coordinate persistence** — currently `ShotTracker.jsx` computes both the shot origin (`shotPos: [lng, lat]`) and ball landing (`coords: [lng, lat]`) but only passes `club` + `yards` up to the parent via `onLogDistance`; future work would persist both coordinate pairs per shot in Firestore so that post-round analysis can show exact shot paths, dispersion patterns per club (e.g., always pulling left with 7-iron), course-specific tendencies (which holes cause trouble), and spatial data for the AI coaching summary
