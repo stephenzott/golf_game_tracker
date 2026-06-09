@@ -85,6 +85,7 @@ const Scorecard = ({ user, db }) => {
   const [courseName, setCourseName] = useState('');
   const [rating, setRating] = useState('');
   const [slope, setSlope] = useState('');
+  const [tees, setTees] = useState('');
   const [roundDate, setRoundDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [ghostMode, setGhostMode] = useState('none');
   const [courseResults, setCourseResults] = useState([]);
@@ -167,15 +168,34 @@ const Scorecard = ({ user, db }) => {
   };
 
   const startRound = async (numHoles) => {
+    const normTees = tees.trim().toLowerCase();
+    const normCourse = courseName.trim().toLowerCase();
+    const preloadRound = normCourse && normTees
+      ? pastRounds.find(r =>
+          r.course?.name?.trim().toLowerCase() === normCourse &&
+          r.tees?.trim().toLowerCase() === normTees
+        )
+      : null;
+
+    const holeData = Array.from({ length: numHoles }, (_, i) => {
+      const base = makeHole(i);
+      if (preloadRound && preloadRound.holeData[i]) {
+        const src = preloadRound.holeData[i];
+        return { ...base, par: src.par ?? base.par, yards: src.yards ?? base.yards };
+      }
+      return base;
+    });
+
     const newRound = {
       date: roundDate,
       holes: numHoles,
       completed: false,
       abandoned: false,
-      holeData: Array.from({ length: numHoles }, (_, i) => makeHole(i)),
+      holeData,
       course: courseName ? { name: courseName } : null,
-      rating: rating ? parseFloat(rating) : null,
-      slope: slope ? parseInt(slope, 10) : null,
+      tees: tees.trim() || null,
+      rating: rating ? parseFloat(rating) : (preloadRound?.rating ?? null),
+      slope: slope ? parseInt(slope, 10) : (preloadRound?.slope ?? null),
       ghostMode,
       ghostScores: computeGhostScores(numHoles),
     };
@@ -266,6 +286,7 @@ const Scorecard = ({ user, db }) => {
     setCourseName('');
     setRating('');
     setSlope('');
+    setTees('');
   };
 
   if (loading) {
@@ -384,8 +405,23 @@ const Scorecard = ({ user, db }) => {
         <div style={{ background: 'white', borderRadius: '14px', padding: '24px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
           <p style={{ margin: '0 0 6px', fontSize: '12px', color: '#aaa', fontWeight: '700', letterSpacing: '0.5px' }}>ROUND COMPLETE · {round.date}</p>
           {round.course?.name && (
-            <p style={{ margin: '0 0 8px', fontSize: '15px', fontWeight: '600', color: '#1a1a1a' }}>{round.course.name}</p>
+            <p style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: '600', color: '#1a1a1a' }}>{round.course.name}</p>
           )}
+          <input
+            key={`tees-${currentRoundId}`}
+            type="text"
+            defaultValue={round.tees || ''}
+            placeholder="Add tees…"
+            onBlur={async (e) => {
+              const newTees = e.target.value.trim() || null;
+              if (newTees === (round.tees ?? null)) return;
+              const updated = { ...round, tees: newTees };
+              setRound(updated);
+              setPastRounds(prev => prev.map(r => r.id === currentRoundId ? { ...r, tees: newTees } : r));
+              await persist(updated, currentRoundId);
+            }}
+            style={{ fontSize: '12px', color: '#888', border: 'none', borderBottom: '1px dashed #ddd', background: 'transparent', textAlign: 'center', width: '120px', padding: '2px 4px', marginBottom: '10px', fontFamily: 'inherit', outline: 'none' }}
+          />
           <div style={{ fontSize: '60px', fontWeight: '700', letterSpacing: '-3px', color: diff === 0 ? '#1a1a1a' : diff < 0 ? '#ef4444' : '#1a5f3d', lineHeight: 1 }}>
             {diff === 0 ? 'E' : diff > 0 ? `+${diff}` : diff}
           </div>
@@ -596,6 +632,14 @@ const Scorecard = ({ user, db }) => {
   // ── Start screen ──────────────────────────────────────────────────────────
   if (!round) {
     const pastCourses = [...new Set(pastRounds.map(r => r.course?.name).filter(Boolean))];
+    const normTees = tees.trim().toLowerCase();
+    const normCourse = courseName.trim().toLowerCase();
+    const preloadMatch = normCourse && normTees
+      ? pastRounds.find(r =>
+          r.course?.name?.trim().toLowerCase() === normCourse &&
+          r.tees?.trim().toLowerCase() === normTees
+        )
+      : null;
     return (
       <div style={{ padding: '32px 16px 40px', maxWidth: '600px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
@@ -666,6 +710,22 @@ const Scorecard = ({ user, db }) => {
                 style={{ width: '100%', padding: '10px 12px', fontSize: '16px', fontWeight: '600', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit', textAlign: 'center' }}
               />
             </div>
+          </div>
+
+          <div style={{ marginTop: '14px' }}>
+            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px', marginBottom: '6px' }}>TEES</label>
+            <input
+              type="text"
+              value={tees}
+              onChange={e => setTees(e.target.value)}
+              placeholder="e.g. Blue, White, Gold…"
+              style={{ width: '100%', padding: '11px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit' }}
+            />
+            {preloadMatch && (
+              <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#1a5f3d', fontWeight: '600' }}>
+                Hole data from {preloadMatch.date} will load
+              </p>
+            )}
           </div>
 
           <div style={{ marginTop: '14px', overflow: 'hidden' }}>

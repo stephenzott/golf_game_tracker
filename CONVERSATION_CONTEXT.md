@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 9, 2026 (Gemini AI coaching summary added to round summary screen)
+**Last Updated**: June 9, 2026 (Tees field + hole preload added to round start screen)
 
 ---
 
@@ -49,6 +49,8 @@
 - Course name, rating, and slope recorded at round start (all optional)
 - Past courses shown as a dropdown select on the start screen
 - Course name autocomplete via Photon (photon.komoot.io) — OSM-based, free, no API key; queries fire after 3 characters with a 400ms debounce; results biased toward user's GPS location when available; dropdown dismisses on blur or selection
+- **Tees field** on start screen (below rating/slope, above date) — optional text input (e.g. "Blue", "White"); saved as `round.tees` (null if blank)
+- **Hole preload**: when both course name and tees match a past round (case-insensitive trim), that round's `par` and `yards` per hole are preloaded into the new round; `rating` and `slope` also carried over if not manually entered; green hint "Hole data from [date] will load" appears when match found; 9/18 mismatch handled gracefully
 - Delete button on each round in history view (removes from Firestore + UI instantly)
 - GIR is auto-derived from score and putts using `(score - putts) <= (par - 2)`; no manual toggle — computed whenever both values are set
 
