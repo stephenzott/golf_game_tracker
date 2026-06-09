@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, query, orderBy, setDoc, doc } from 'firebase/firestore';
+import { getRoundSummary, canUseAI } from './geminiSummary';
 
 const scoreLabel = (score, par) => {
   const d = score - par;
@@ -90,6 +91,9 @@ const Scorecard = ({ user, db }) => {
   const [userLatLng, setUserLatLng] = useState(null);
   const [isEditingRound, setIsEditingRound] = useState(false);
   const [preEditRound, setPreEditRound] = useState(null);
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(null);
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
@@ -489,6 +493,46 @@ const Scorecard = ({ user, db }) => {
             </tbody>
           </table>
         </div>
+
+        {canUseAI(user) && (
+          <div style={{ background: 'white', borderRadius: '14px', padding: '20px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            {!aiSummary && (
+              <button
+                onClick={async () => {
+                  setAiLoading(true);
+                  setAiError(null);
+                  try {
+                    const text = await getRoundSummary(round);
+                    setAiSummary(text);
+                  } catch (err) {
+                    setAiError(err.message);
+                  } finally {
+                    setAiLoading(false);
+                  }
+                }}
+                disabled={aiLoading}
+                style={{ width: '100%', padding: '14px', background: aiLoading ? '#f0f0f0' : '#1a5f3d', color: aiLoading ? '#aaa' : 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: aiLoading ? 'default' : 'pointer' }}
+              >
+                {aiLoading ? 'Analyzing your round...' : '✨ AI Coaching Summary'}
+              </button>
+            )}
+            {aiError && (
+              <p style={{ margin: '0', fontSize: '13px', color: '#ef4444' }}>Error: {aiError}</p>
+            )}
+            {aiSummary && (
+              <div>
+                <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>AI COACHING SUMMARY</p>
+                <p style={{ margin: '0 0 12px', fontSize: '14px', color: '#1a1a1a', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{aiSummary}</p>
+                <button
+                  onClick={() => setAiSummary(null)}
+                  style={{ background: 'none', border: 'none', fontSize: '12px', color: '#bbb', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                >
+                  Regenerate
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         <button
           onClick={() => {
