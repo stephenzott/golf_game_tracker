@@ -117,7 +117,6 @@
 - Chart visualization of distances per club
 - Export round data to CSV
 - Handicap differential calculation (uses rating + slope now stored on rounds)
-- ~~"Post to GHIN" button~~ ✓ shipped
 
 ### Phase 3: GPS & spatial
 - **GPS shot coordinate persistence** — currently `ShotTracker.jsx` computes both the shot origin (`shotPos: [lng, lat]`) and ball landing (`coords: [lng, lat]`) but only passes `club` + `yards` up to the parent via `onLogDistance`; future work would persist both coordinate pairs per shot in Firestore so that post-round analysis can show exact shot paths, dispersion patterns per club (e.g., always pulling left with 7-iron), course-specific tendencies (which holes cause trouble), and spatial data for the AI coaching summary
