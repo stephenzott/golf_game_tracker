@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 9, 2026 (Tees field + hole preload added to round start screen)
+**Last Updated**: June 9, 2026 (AI summary persisted per round in Firestore)
 
 ---
 
@@ -69,7 +69,9 @@
 - Gated to `szott19@gmail.com` only via `ALLOWED_AI_USERS` in `src/geminiSummary.js` — invisible to other users
 - Calls Gemini 2.5 Flash (`gemini-2.5-flash`) directly from the browser using `VITE_GEMINI_API_KEY` stored in `.env.local` (gitignored)
 - Prompt sends full hole-by-hole data (score, putts, FIR, GIR, hazard, bunker) plus round-level stats; asks Gemini to respond as a golf coach in under 300 words
-- Response displays inline; "Regenerate" link clears it so the button reappears
+- Response displays inline; "Regenerate" link overwrites the existing summary and re-saves
+- **AI summary is persisted**: stored as `round.aiSummary` in the Firestore round document; survives page reloads and app restarts; tied to the specific round so switching between rounds/courses shows the correct summary (or the generate button if none exists yet)
+- `aiError` state resets automatically when the active round changes (via `useEffect` on `round?.id`)
 - API key stored in `.env.local` as `VITE_GEMINI_API_KEY`; key is visible in the client bundle — quota cap on the key in Google Cloud Console is recommended
 - Before expanding to beta testers, check rate usage at: https://aistudio.google.com/rate-limit?timeRange=last-28-days&project=gen-lang-client-0026826837
 
