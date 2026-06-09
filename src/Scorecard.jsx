@@ -91,6 +91,7 @@ const Scorecard = ({ user, db }) => {
   const [courseResults, setCourseResults] = useState([]);
   const [userLatLng, setUserLatLng] = useState(null);
   const [isEditingRound, setIsEditingRound] = useState(false);
+  const [justFinished, setJustFinished] = useState(false);
   const [preEditRound, setPreEditRound] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
@@ -254,6 +255,7 @@ const Scorecard = ({ user, db }) => {
     data[currentHole] = { ...h, score: h.score ?? h.par, putts: h.putts ?? 2 };
     const finished = { ...round, holeData: data, completed: true };
     setRound(finished);
+    setJustFinished(true);
     await persist(finished, roundDocId);
     setPastRounds(prev => [{ id: roundDocId, ...finished }, ...prev]);
   };
@@ -288,6 +290,7 @@ const Scorecard = ({ user, db }) => {
     setRating('');
     setSlope('');
     setTees('');
+    setJustFinished(false);
   };
 
   if (loading) {
@@ -589,6 +592,16 @@ const Scorecard = ({ user, db }) => {
           </div>
         )}
 
+        {justFinished && (
+          <a
+            href="https://www.ghin.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: 'block', width: '100%', padding: '16px', background: 'white', color: '#1a5f3d', border: '1px solid #1a5f3d', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', marginBottom: '10px', textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box' }}
+          >
+            Post to GHIN
+          </a>
+        )}
         <button
           onClick={() => {
             setRoundDocId(round.id ?? roundDocId);
@@ -628,7 +641,7 @@ const Scorecard = ({ user, db }) => {
               const par = played.reduce((s, h) => s + h.par, 0);
               const d = total - par;
               return (
-                <div key={r.id} onClick={() => { setRound(r); setShowHistory(false); }} style={{ background: 'white', borderRadius: '12px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+                <div key={r.id} onClick={() => { setRound(r); setShowHistory(false); setJustFinished(false); }} style={{ background: 'white', borderRadius: '12px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
                   <div>
                     <p style={{ margin: '0 0 2px', fontSize: '14px', fontWeight: '600' }}>{r.course?.name ?? r.date}</p>
                     <p style={{ margin: 0, fontSize: '12px', color: '#aaa' }}>{r.course?.name ? `${r.date} · ` : ''}{r.holes} holes</p>
