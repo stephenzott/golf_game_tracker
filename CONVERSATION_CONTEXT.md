@@ -62,6 +62,7 @@
 - Bounce Back %: percentage of holes where player made par or better immediately after a bogey or worse; shown as N/A when no opportunities exist
 - Course comparison: when other rounds exist at the same course, each stat shows a historical average below it for context
 - Full hole-by-hole table with score circles, FIR, GIR, putts, and penalties
+- **Inline tees editor** in the summary header (below course name) — editable input field; saves to Firestore on blur; allows adding/editing tees for rounds already entered; shows "Add tees…" placeholder when blank
 
 ### AI Coaching Summary
 - "✨ AI Coaching Summary" button appears at the bottom of the round summary screen, above the Edit/Start New Round buttons
