@@ -1,7 +1,7 @@
 const GEMINI_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
-const ALLOWED_AI_USERS = ['szott19@gmail.com'];
+const ALLOWED_AI_USERS = ['szott19@gmail.com', 'mfarotte@gmail.com'];
 
 export const canUseAI = (user) => ALLOWED_AI_USERS.includes(user?.email);
 
