@@ -113,6 +113,7 @@
 
 ### Phase 2:
 - **AI season/trend summary** — extend the Gemini coaching agent to analyze all completed rounds together, not just a single round; identify trends over time (e.g. improving GIR, recurring bogey patterns, best courses)
+- **GPS shot coordinate persistence** — currently `ShotTracker.jsx` computes both the shot origin (`shotPos: [lng, lat]`) and ball landing (`coords: [lng, lat]`) but only passes `club` + `yards` up to the parent via `onLogDistance`; future work would persist both coordinate pairs per shot in Firestore so that post-round analysis can show exact shot paths, dispersion patterns per club (e.g., always pulling left with 7-iron), course-specific tendencies (which holes cause trouble), and spatial data for the AI coaching summary
 - Knockdown shot type — differentiate full swings from intentional partial/knockdown shots; knockdown data to be available in the club suggestion tab alongside full-swing yardages
 - Chart visualization of distances per club
 - Export round data to CSV
