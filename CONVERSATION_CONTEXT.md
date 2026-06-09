@@ -110,6 +110,7 @@
 ## Next Possible Features
 
 ### Phase 2:
+- **AI season/trend summary** — extend the Gemini coaching agent to analyze all completed rounds together, not just a single round; identify trends over time (e.g. improving GIR, recurring bogey patterns, best courses)
 - Knockdown shot type — differentiate full swings from intentional partial/knockdown shots; knockdown data to be available in the club suggestion tab alongside full-swing yardages
 - Chart visualization of distances per club
 - Export round data to CSV
