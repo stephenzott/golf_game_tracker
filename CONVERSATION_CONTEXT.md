@@ -111,23 +111,23 @@
 
 ## Next Possible Features
 
-### Phase 2:
-- **AI season/trend summary** — extend the Gemini coaching agent to analyze all completed rounds together, not just a single round; identify trends over time (e.g. improving GIR, recurring bogey patterns, best courses)
-- **GPS shot coordinate persistence** — currently `ShotTracker.jsx` computes both the shot origin (`shotPos: [lng, lat]`) and ball landing (`coords: [lng, lat]`) but only passes `club` + `yards` up to the parent via `onLogDistance`; future work would persist both coordinate pairs per shot in Firestore so that post-round analysis can show exact shot paths, dispersion patterns per club (e.g., always pulling left with 7-iron), course-specific tendencies (which holes cause trouble), and spatial data for the AI coaching summary
+### Phase 2: Quick wins
 - Knockdown shot type — differentiate full swings from intentional partial/knockdown shots; knockdown data to be available in the club suggestion tab alongside full-swing yardages
 - Chart visualization of distances per club
 - Export round data to CSV
 - Handicap differential calculation (uses rating + slope now stored on rounds)
 - "Post to GHIN" button after round completion — deep links to ghin.com for manual posting (no official API without USGA partnership)
 
-### Phase 3:
+### Phase 3: GPS & spatial
+- **GPS shot coordinate persistence** — currently `ShotTracker.jsx` computes both the shot origin (`shotPos: [lng, lat]`) and ball landing (`coords: [lng, lat]`) but only passes `club` + `yards` up to the parent via `onLogDistance`; future work would persist both coordinate pairs per shot in Firestore so that post-round analysis can show exact shot paths, dispersion patterns per club (e.g., always pulling left with 7-iron), course-specific tendencies (which holes cause trouble), and spatial data for the AI coaching summary
+- **SVG shot path visualization** — render per-hole shot paths as lines on a plain background (no Mapbox); normalize saved lat/lng coordinates to an SVG viewbox, scale longitude axis to account for latitude compression, draw tee→landing→landing chains with dots at each stop and optional club-based color coding; zero external dependencies, zero cost; depends on GPS coordinate persistence above
+
+### Phase 4: Multi-round analytics
+- **AI season/trend summary** — extend the Gemini coaching agent to analyze all completed rounds together, not just a single round; identify trends over time (e.g. improving GIR, recurring bogey patterns, best courses)
 - Multiple rounds comparison
 - Handicap calculation
 - Course difficulty tracking
-- Weather data integration
 
-### Phase 4:
-- User accounts (backend)
-- Cloud sync
-- Mobile app
+### Phase 5: Environment & social
+- Weather data integration
 - Social features
