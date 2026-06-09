@@ -49,8 +49,9 @@ Please provide:
 1. A 2-3 sentence overall summary of the round
 2. The biggest strength shown today
 3. The single biggest area costing the most strokes
-4. Two specific, actionable practice priorities for next session
-5. One encouraging closing thought
+4. Two specific, actionable practice priorities for next session, use club distances to specifically call out clubs if relevant
+5. If there are specific drills that would be helpful, let the user know what they are.
+6. One encouraging closing thought
 
 Keep the total response under 300 words. Use plain paragraphs, not bullet points.
 `.trim();
