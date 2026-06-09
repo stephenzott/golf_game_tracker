@@ -92,7 +92,6 @@ const Scorecard = ({ user, db }) => {
   const [userLatLng, setUserLatLng] = useState(null);
   const [isEditingRound, setIsEditingRound] = useState(false);
   const [preEditRound, setPreEditRound] = useState(null);
-  const [aiSummary, setAiSummary] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
 
@@ -102,6 +101,8 @@ const Scorecard = ({ user, db }) => {
       () => {}
     );
   }, []);
+
+  useEffect(() => { setAiError(null); }, [round?.id]);
 
   useEffect(() => {
     if (courseName.length < 3) { setCourseResults([]); return; }
@@ -532,14 +533,17 @@ const Scorecard = ({ user, db }) => {
 
         {canUseAI(user) && (
           <div style={{ background: 'white', borderRadius: '14px', padding: '20px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            {!aiSummary && (
+            {!round.aiSummary && (
               <button
                 onClick={async () => {
                   setAiLoading(true);
                   setAiError(null);
                   try {
                     const text = await getRoundSummary(round);
-                    setAiSummary(text);
+                    const updated = { ...round, aiSummary: text };
+                    setRound(updated);
+                    setPastRounds(prev => prev.map(r => r.id === currentRoundId ? { ...r, aiSummary: text } : r));
+                    await persist(updated, currentRoundId);
                   } catch (err) {
                     setAiError(err.message);
                   } finally {
@@ -555,15 +559,30 @@ const Scorecard = ({ user, db }) => {
             {aiError && (
               <p style={{ margin: '0', fontSize: '13px', color: '#ef4444' }}>Error: {aiError}</p>
             )}
-            {aiSummary && (
+            {round.aiSummary && (
               <div>
                 <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>AI COACHING SUMMARY</p>
-                <p style={{ margin: '0 0 12px', fontSize: '14px', color: '#1a1a1a', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{aiSummary}</p>
+                <p style={{ margin: '0 0 12px', fontSize: '14px', color: '#1a1a1a', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{round.aiSummary}</p>
                 <button
-                  onClick={() => setAiSummary(null)}
-                  style={{ background: 'none', border: 'none', fontSize: '12px', color: '#bbb', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                  onClick={async () => {
+                    setAiLoading(true);
+                    setAiError(null);
+                    try {
+                      const text = await getRoundSummary(round);
+                      const updated = { ...round, aiSummary: text };
+                      setRound(updated);
+                      setPastRounds(prev => prev.map(r => r.id === currentRoundId ? { ...r, aiSummary: text } : r));
+                      await persist(updated, currentRoundId);
+                    } catch (err) {
+                      setAiError(err.message);
+                    } finally {
+                      setAiLoading(false);
+                    }
+                  }}
+                  disabled={aiLoading}
+                  style={{ background: 'none', border: 'none', fontSize: '12px', color: '#bbb', cursor: aiLoading ? 'default' : 'pointer', padding: 0, textDecoration: 'underline' }}
                 >
-                  Regenerate
+                  {aiLoading ? 'Regenerating...' : 'Regenerate'}
                 </button>
               </div>
             )}
