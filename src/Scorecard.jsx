@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, query, orderBy, setDoc, doc } from 'firebase/firestore';
 import { getRoundSummary, canUseAI } from './geminiSummary';
+import { calculateCourseHandicap } from './handicap';
 
 const wmoToCondition = (code) => {
   if (code === 0) return 'Clear';
@@ -88,7 +89,7 @@ const makeHole = (i) => ({
   bunker: false,
 });
 
-const Scorecard = ({ user, db }) => {
+const Scorecard = ({ user, db, handicapIndex }) => {
   const [round, setRound] = useState(null);
   const [currentHole, setCurrentHole] = useState(0);
   const [roundDocId, setRoundDocId] = useState(null);
@@ -354,6 +355,7 @@ const Scorecard = ({ user, db }) => {
     const handicapDiff = round.rating && round.slope
       ? ((totalScore - round.rating) * 113 / round.slope).toFixed(1)
       : null;
+    const courseHandicap = calculateCourseHandicap(handicapIndex, round.slope, round.rating, totalPar);
 
     const scoringBreakdown = [
       { label: 'Eagle', color: '#f59e0b', count: played.filter(h => h.score <= h.par - 2).length },
@@ -464,6 +466,9 @@ const Scorecard = ({ user, db }) => {
           <p style={{ margin: '6px 0 0', fontSize: '15px', color: '#888' }}>{totalScore} strokes · {totalPar} par</p>
           {handicapDiff !== null && (
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#aaa' }}>Differential: {handicapDiff > 0 ? '+' : ''}{handicapDiff}</p>
+          )}
+          {courseHandicap !== null && (
+            <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#aaa' }}>Course Handicap: {courseHandicap}</p>
           )}
         </div>
 
@@ -775,6 +780,15 @@ const Scorecard = ({ user, db }) => {
               />
             </div>
           </div>
+
+          {(() => {
+            const ch = calculateCourseHandicap(handicapIndex, parseInt(slope, 10), parseFloat(rating), 72);
+            return ch !== null ? (
+              <p style={{ margin: '10px 0 0', fontSize: '13px', color: '#1a5f3d', fontWeight: '600', textAlign: 'center' }}>
+                Course Handicap: {ch}
+              </p>
+            ) : null;
+          })()}
 
           <div style={{ marginTop: '14px' }}>
             <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px', marginBottom: '6px' }}>TEES</label>
