@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 9, 2026 (Club tab shows "Plays As" distance; weather wind clock face)
+**Last Updated**: June 9, 2026 (Knockdown shot type shipped)
 
 ---
 
@@ -32,15 +32,19 @@
 - Range shot type with 1/10th weighting (range shots count less than on-course shots)
 - Smart club recommendations — only suggests clubs that can reach the target distance; club is selected based on effective playing distance (conditions applied first), not raw target
 - **"Plays As" framing** — when wind or elevation is set, a PLAYS AS tile appears in the recommendation showing the effective hole distance (headwind/uphill = longer, tailwind/downhill = shorter); hidden when no conditions are set (only CONFIDENCE tile shows)
-- Outlier filtering — once 15+ shots are logged for a club, shots below 60% of the raw mean are excluded from both the weighted blended distance and the displayed average; only low outliers (mishits) are trimmed, not long shots; applies regardless of shot type (course, range, tracked)
-- IQR range display — Q1–Q3 typical range shown below the distance in both the Log and Bag tabs; uses outlier-filtered shots; requires 4+ shots to display; computed via linear interpolation
-- Max toggle — button in Log tab (above distance history) and Bag tab header; swaps weighted average for all-time raw max per club; max uses unfiltered shots across all types
+- Outlier filtering — once 15+ shots are logged for a club, shots below 60% of the raw mean are excluded from both the weighted blended distance and the displayed average; only low outliers (mishits) are trimmed, not long shots; applies to full-swing shots only
+- IQR range display — Q1–Q3 typical range shown below the distance in both the Log and Bag tabs; uses outlier-filtered full-swing shots; requires 4+ shots to display; computed via linear interpolation
+- Max toggle — button in Log tab (above distance history) and Bag tab header; swaps weighted average for all-time raw max per club; max uses unfiltered shots across all types including knockdown
 - Shot count displayed under club name in both Log and Bag tabs
 - "Update Base Distances" button moved to bottom of Bag tab club list
+- **Knockdown shot type** — Full Swing / Knockdown toggle in Log tab (below Course/Range) and Track tab (below shot distance); knockdown flag stored on shot objects; knockdown shots excluded from full-swing averages, IQR, and blended distance calculations; "Knockdown" badge shown on individual shots in Log tab history
+- **Knockdown base distance** — each club in the bag edit form has a KD YDS column alongside FULL YDS; blended with logged knockdown shots using the same BASE_WEIGHT formula as full-swing
+- **Knockdown Bag toggle** — "Knockdown" button in Bag tab header (mutually exclusive with Max); shows blended knockdown distance per club in blue, or "—" for clubs with no knockdown data
+- **Knockdown club suggestion** — in Club tab, after the full-swing recommendation, a "Suggest knockdown?" button appears when any club's knockdown avg is within 5 yards of the target; clicking reveals a second blue-accented tile; threshold is intentionally tight (5 yds) and may be user-adjustable in a future update
 
 ### My Bag
 - 13-slot customizable bag setup
-- Clubs have editable base distances
+- Clubs have editable base distances (full swing) and optional knockdown base distances
 - Bag sorted by distance descending on save (clubs with no distance preserve entered order)
 - Sort applied on both load and save
 
@@ -120,7 +124,7 @@
 ## Next Possible Features
 
 ### Phase 2: Quick wins
-- Knockdown shot type — differentiate full swings from intentional partial/knockdown shots; knockdown data to be available in the club suggestion tab alongside full-swing yardages
+- ~~Knockdown shot type~~ — shipped (toggle in Log/Track tabs, bag base distances, Bag tab view, club suggestion)
 - Chart visualization of distances per club
 - Export round data to CSV
 - Handicap differential calculation (uses rating + slope now stored on rounds)
