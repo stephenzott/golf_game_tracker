@@ -7,7 +7,7 @@ import { signInWithRedirect, signInWithPopup, getRedirectResult, signOut, onAuth
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, googleProvider, db } from './src/firebase.js';
 
-const EMPTY_SLOT = () => ({ name: '', distance: '' });
+const EMPTY_SLOT = () => ({ name: '', distance: '', knockdownDistance: '' });
 
 const sortSlots = (slots) =>
   slots
@@ -101,16 +101,19 @@ const GolfTrackerApp = () => {
   const [activeTab, setActiveTab] = useState('log');
   // recommendation: null when empty, or an object with club suggestion and adjusted distance
   const [recommendation, setRecommendation] = useState(null);
+  const [showKnockdownSuggestion, setShowKnockdownSuggestion] = useState(false);
   // user: Firebase Auth user object, null when signed out
   const [user, setUser] = useState(null);
   // loading: true while auth state is being determined on startup
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [shotType, setShotType] = useState('course'); // 'course' | 'range'
+  const [isKnockdown, setIsKnockdown] = useState(false);
   const [bagSlots, setBagSlots] = useState(Array.from({ length: 13 }, EMPTY_SLOT));
   const [bagEditSlots, setBagEditSlots] = useState([]);
   const [editingBag, setEditingBag] = useState(false);
   const [showMax, setShowMax] = useState(false);
+  const [showKnockdownBag, setShowKnockdownBag] = useState(false);
   // Stays false until the initial Firestore load completes, preventing saves
   // triggered by setUser() firing before getDoc() resolves
   const saveEnabled = useRef(false);
@@ -150,6 +153,7 @@ const GolfTrackerApp = () => {
               const loaded = snap.data().bag.map(s => ({
                 name: s.name || '',
                 distance: s.distance != null ? String(s.distance) : '',
+                knockdownDistance: s.knockdownDistance != null ? String(s.knockdownDistance) : '',
               }));
               while (loaded.length < 13) loaded.push(EMPTY_SLOT());
               setBagSlots(sortSlots(loaded));
@@ -208,6 +212,7 @@ const GolfTrackerApp = () => {
     const bag = bagSlots.map(s => ({
       name: s.name,
       distance: parseFloat(s.distance) || null,
+      knockdownDistance: parseFloat(s.knockdownDistance) || null,
     }));
     setDoc(docRef, { distances, bag });
   }, [distances, bagSlots, user]);
@@ -230,6 +235,11 @@ const GolfTrackerApp = () => {
       .filter(s => s.name && parseFloat(s.distance) > 0)
       .map(s => [s.name, parseFloat(s.distance)])
   );
+  const knockdownBaseDistances = Object.fromEntries(
+    bagSlots
+      .filter(s => s.name && parseFloat(s.knockdownDistance) > 0)
+      .map(s => [s.name, parseFloat(s.knockdownDistance)])
+  );
 
   // Treating the baseline as 5 virtual shots — real data overtakes it after ~10 logged shots
   const BASE_WEIGHT = 5;
@@ -244,12 +254,15 @@ const GolfTrackerApp = () => {
     return shots.filter(shot => shot.value >= rawMean * OUTLIER_THRESHOLD);
   };
 
+  const fullSwings = (club) => (distances[club] || []).filter(s => !s.knockdown);
+
   // Blends the baseline with the user's logged average.
   // Range shots count as 1/10th of a course shot so they influence the average
   // without overwhelming a small number of real on-course readings.
+  // Only full-swing shots are used — knockdown shots are excluded.
   const getBlendedDistance = (club) => {
     const base = baseDistances[club] ?? 0;
-    const allShots = distances[club] || [];
+    const allShots = fullSwings(club);
     if (allShots.length === 0) return { blended: base, userShots: 0 };
     const shots = filterOutliers(allShots);
     const RANGE_WEIGHT = 0.1;
@@ -258,6 +271,34 @@ const GolfTrackerApp = () => {
     const userAvg = weightedSum / effectiveWeight;
     const blended = (base * BASE_WEIGHT + userAvg * effectiveWeight) / (BASE_WEIGHT + effectiveWeight);
     return { blended, userShots: allShots.length };
+  };
+
+  // Blends the knockdown base distance with logged knockdown shots.
+  // Returns null when no knockdown data exists for the club at all.
+  const getKnockdownBlended = (club) => {
+    const base = knockdownBaseDistances[club] ?? null;
+    const shots = (distances[club] || []).filter(s => s.knockdown);
+    if (shots.length === 0) return base ? { blended: base, count: 0 } : null;
+    const userAvg = shots.reduce((a, s) => a + s.value, 0) / shots.length;
+    if (base === null) return { blended: userAvg, count: shots.length };
+    const blended = (base * BASE_WEIGHT + userAvg * shots.length) / (BASE_WEIGHT + shots.length);
+    return { blended, count: shots.length };
+  };
+
+  // Finds the club whose knockdown avg is closest to targetYards within a 5-yard window.
+  const getBestKnockdownForTarget = (targetYards) => {
+    let best = null;
+    let bestDiff = Infinity;
+    clubs.forEach(club => {
+      const kd = getKnockdownBlended(club);
+      if (!kd) return;
+      const diff = Math.abs(Math.round(kd.blended) - targetYards);
+      if (diff <= 5 && diff < bestDiff) {
+        bestDiff = diff;
+        best = { club, avg: Math.round(kd.blended), count: kd.count, diff };
+      }
+    });
+    return best;
   };
 
   const handleEditBag = () => {
@@ -291,7 +332,7 @@ const GolfTrackerApp = () => {
 
     setDistances(prev => ({
       ...prev,
-      [selectedClub]: [...(prev[selectedClub] || []), { value: numDistance, type: shotType }]
+      [selectedClub]: [...(prev[selectedClub] || []), { value: numDistance, type: shotType, ...(isKnockdown && { knockdown: true }) }]
     }));
 
     setDistance('');
@@ -306,8 +347,8 @@ const GolfTrackerApp = () => {
   };
 
   const getAverageDistance = (club) => {
-    if (!distances[club] || distances[club].length === 0) return 0;
-    const shots = filterOutliers(distances[club]);
+    const shots = filterOutliers(fullSwings(club));
+    if (shots.length === 0) return 0;
     const sum = shots.reduce((a, s) => a + s.value, 0);
     return (sum / shots.length).toFixed(1);
   };
@@ -315,7 +356,7 @@ const GolfTrackerApp = () => {
   // Returns { q1, q3 } using linear interpolation on outlier-filtered shots,
   // or null when fewer than 4 shots exist (not enough for a meaningful spread).
   const getIQRRange = (club) => {
-    const shots = filterOutliers(distances[club] || []);
+    const shots = filterOutliers(fullSwings(club));
     if (shots.length < 4) return null;
     const sorted = [...shots].sort((a, b) => a.value - b.value);
     const percentile = (p) => {
@@ -369,13 +410,15 @@ const GolfTrackerApp = () => {
       }
     });
 
+    setShowKnockdownSuggestion(false);
     setRecommendation({
       club: bestClub.name,
       baseDistance: bestClub.blended.toFixed(1),
       userShots: bestClub.userShots,
       playsAs: adjustmentNotes.length > 0 ? playsAs.toFixed(1) : null,
       adjustmentNotes,
-      accuracy: (100 - (closestDiff / bestClub.blended * 100)).toFixed(0)
+      accuracy: (100 - (closestDiff / bestClub.blended * 100)).toFixed(0),
+      knockdownOption: getBestKnockdownForTarget(Math.round(playsAs)),
     });
   };
 
@@ -565,7 +608,7 @@ const GolfTrackerApp = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
                 {[
                   { id: 'course', label: '⛳ Course' },
                   { id: 'range', label: '🏌️ Range' },
@@ -577,6 +620,24 @@ const GolfTrackerApp = () => {
                       padding: '10px',
                       background: shotType === t.id ? '#1a5f3d' : '#f5f5f5',
                       color: shotType === t.id ? 'white' : '#888',
+                      border: 'none', borderRadius: '6px',
+                      fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+                    }}
+                  >{t.label}</button>
+                ))}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+                {[
+                  { id: false, label: 'Full Swing' },
+                  { id: true, label: 'Knockdown' },
+                ].map(t => (
+                  <button
+                    key={String(t.id)}
+                    onClick={() => setIsKnockdown(t.id)}
+                    style={{
+                      padding: '10px',
+                      background: isKnockdown === t.id ? '#2d6a8a' : '#f5f5f5',
+                      color: isKnockdown === t.id ? 'white' : '#888',
                       border: 'none', borderRadius: '6px',
                       fontSize: '13px', fontWeight: '600', cursor: 'pointer',
                     }}
@@ -681,6 +742,9 @@ const GolfTrackerApp = () => {
                           {dist.value} yds
                           {dist.type === 'range' && (
                             <span style={{ fontSize: '10px', color: '#888', background: '#e8e8e8', padding: '1px 6px', borderRadius: '10px' }}>Range</span>
+                          )}
+                          {dist.knockdown && (
+                            <span style={{ fontSize: '10px', color: '#2d6a8a', background: '#e8f0f5', padding: '1px 6px', borderRadius: '10px' }}>Knockdown</span>
                           )}
                         </span>
                         <button
@@ -936,6 +1000,52 @@ const GolfTrackerApp = () => {
               </div>
             )}
 
+            {recommendation && recommendation.knockdownOption && !showKnockdownSuggestion && (
+              <button
+                onClick={() => setShowKnockdownSuggestion(true)}
+                style={{
+                  marginTop: '12px',
+                  width: '100%',
+                  padding: '12px',
+                  background: 'none',
+                  border: '1px solid #2d6a8a',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  color: '#2d6a8a',
+                  cursor: 'pointer',
+                }}
+              >
+                Suggest knockdown?
+              </button>
+            )}
+
+            {recommendation && recommendation.knockdownOption && showKnockdownSuggestion && (
+              <div style={{
+                background: 'white',
+                borderRadius: '12px',
+                padding: '28px',
+                marginTop: '12px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                borderLeft: '4px solid #2d6a8a'
+              }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#2d6a8a', fontWeight: '600' }}>
+                  KNOCKDOWN OPTION
+                </p>
+                <div style={{ fontSize: '48px', fontWeight: '700', color: '#2d6a8a', letterSpacing: '-2px', marginBottom: '8px' }}>
+                  {recommendation.knockdownOption.club}
+                </div>
+                <p style={{ margin: '0', fontSize: '15px', color: '#666' }}>
+                  Knockdown avg: <strong>{recommendation.knockdownOption.avg} yards</strong>
+                </p>
+                <p style={{ margin: '6px 0 0 0', fontSize: '12px', color: '#aaa' }}>
+                  {recommendation.knockdownOption.count === 0
+                    ? 'Based on your knockdown base distance'
+                    : `Based on ${recommendation.knockdownOption.count} knockdown shot${recommendation.knockdownOption.count !== 1 ? 's' : ''}`}
+                </p>
+              </div>
+            )}
+
             {!recommendation && (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>
                 <Target size={40} style={{ marginBottom: '12px', opacity: 0.5 }} />
@@ -972,10 +1082,16 @@ const GolfTrackerApp = () => {
                     >Save</button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setShowMax(v => !v)}
-                    style={{ padding: '8px 14px', background: showMax ? '#1a5f3d' : '#f5f5f5', color: showMax ? 'white' : '#888', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
-                  >Max</button>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      onClick={() => { setShowMax(v => !v); setShowKnockdownBag(false); }}
+                      style={{ padding: '8px 14px', background: showMax ? '#1a5f3d' : '#f5f5f5', color: showMax ? 'white' : '#888', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
+                    >Max</button>
+                    <button
+                      onClick={() => { setShowKnockdownBag(v => !v); setShowMax(false); }}
+                      style={{ padding: '8px 14px', background: showKnockdownBag ? '#2d6a8a' : '#f5f5f5', color: showKnockdownBag ? 'white' : '#888', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
+                    >Knockdown</button>
+                  </div>
                 )}
               </div>
 
@@ -993,16 +1109,17 @@ const GolfTrackerApp = () => {
               {editingBag ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <div style={{
-                    display: 'grid', gridTemplateColumns: '20px 1fr 80px',
+                    display: 'grid', gridTemplateColumns: '20px 1fr 68px 68px',
                     gap: '8px', padding: '0 4px 6px',
                     fontSize: '11px', fontWeight: '600', color: '#bbb', letterSpacing: '0.5px',
                   }}>
                     <span />
                     <span>CLUB NAME</span>
-                    <span style={{ textAlign: 'center' }}>YARDS</span>
+                    <span style={{ textAlign: 'center' }}>FULL YDS</span>
+                    <span style={{ textAlign: 'center', color: '#2d6a8a' }}>KD YDS</span>
                   </div>
                   {bagEditSlots.map((slot, idx) => (
-                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '20px 1fr 80px', gap: '8px', alignItems: 'center' }}>
+                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '20px 1fr 68px 68px', gap: '8px', alignItems: 'center' }}>
                       <span style={{ fontSize: '11px', color: '#ccc', textAlign: 'right' }}>{idx + 1}</span>
                       <input
                         type="text"
@@ -1034,6 +1151,22 @@ const GolfTrackerApp = () => {
                           textAlign: 'center', fontFamily: 'inherit', boxSizing: 'border-box',
                         }}
                       />
+                      <input
+                        type="number"
+                        placeholder="—"
+                        value={slot.knockdownDistance}
+                        onChange={e => {
+                          const updated = [...bagEditSlots];
+                          updated[idx] = { ...updated[idx], knockdownDistance: e.target.value };
+                          setBagEditSlots(updated);
+                        }}
+                        style={{
+                          padding: '7px 8px', fontSize: '14px', fontWeight: '600',
+                          border: '1px solid #c8dce8', borderRadius: '6px',
+                          textAlign: 'center', fontFamily: 'inherit', boxSizing: 'border-box',
+                          color: '#2d6a8a',
+                        }}
+                      />
                     </div>
                   ))}
                 </div>
@@ -1044,7 +1177,10 @@ const GolfTrackerApp = () => {
                       const { blended, userShots } = getBlendedDistance(club);
                       const hasData = (club in baseDistances) || userShots > 0;
                       const maxDist = getMaxDistance(club);
-                      const displayValue = showMax && maxDist ? maxDist : (hasData ? Math.round(blended) : 0);
+                      const kdData = showKnockdownBag ? getKnockdownBlended(club) : null;
+                      const displayValue = showKnockdownBag
+                        ? (kdData ? Math.round(kdData.blended) : '—')
+                        : showMax && maxDist ? maxDist : (hasData ? Math.round(blended) : 0);
                       return (
                         <div
                           key={club}
@@ -1064,7 +1200,7 @@ const GolfTrackerApp = () => {
                             )}
                           </div>
                           <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '16px', fontWeight: '700', color: hasData ? '#1a5f3d' : '#ccc' }}>
+                            <div style={{ fontSize: '16px', fontWeight: '700', color: showKnockdownBag ? (kdData ? '#2d6a8a' : '#ccc') : (hasData ? '#1a5f3d' : '#ccc') }}>
                               {displayValue}
                             </div>
                             {(() => { const iqr = getIQRRange(club); return iqr ? (
@@ -1101,10 +1237,10 @@ const GolfTrackerApp = () => {
       {activeTab === 'track' && (
         <ShotTracker
           clubs={clubs}
-          onLogDistance={(club, yards) =>
+          onLogDistance={(club, yards, knockdown) =>
             setDistances(prev => ({
               ...prev,
-              [club]: [...(prev[club] || []), { value: yards, type: 'course' }],
+              [club]: [...(prev[club] || []), { value: yards, type: 'course', ...(knockdown && { knockdown: true }) }],
             }))
           }
         />

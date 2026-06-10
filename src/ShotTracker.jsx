@@ -31,6 +31,7 @@ const ShotTracker = ({ clubs, onLogDistance }) => {
   const [yards, setYards] = useState(null);
   const [locating, setLocating] = useState(false);
   const [selectedClub, setSelectedClub] = useState('');
+  const [isKnockdown, setIsKnockdown] = useState(false);
 
   useEffect(() => {
     if (map.current) return;
@@ -142,7 +143,7 @@ const ShotTracker = ({ clubs, onLogDistance }) => {
 
   const handleLog = () => {
     if (!selectedClub || !yards) return;
-    onLogDistance(selectedClub, yards);
+    onLogDistance(selectedClub, yards, isKnockdown);
     handleReset();
   };
 
@@ -154,11 +155,29 @@ const ShotTracker = ({ clubs, onLogDistance }) => {
       {/* Bottom control panel */}
       <div style={{ padding: '16px', background: 'white', boxShadow: '0 -2px 8px rgba(0,0,0,0.08)', flexShrink: 0 }}>
         {yards ? (
-          <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '10px' }}>
             <p style={{ margin: '0 0 2px', fontSize: '12px', color: '#888', fontWeight: '600', letterSpacing: '0.5px' }}>SHOT DISTANCE</p>
-            <p style={{ margin: 0, fontSize: '52px', fontWeight: '700', color: '#1a5f3d', letterSpacing: '-2px', lineHeight: 1 }}>
+            <p style={{ margin: '0 0 10px', fontSize: '52px', fontWeight: '700', color: '#1a5f3d', letterSpacing: '-2px', lineHeight: 1 }}>
               {yards} <span style={{ fontSize: '18px', color: '#888', fontWeight: '400' }}>yds</span>
             </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              {[
+                { id: false, label: 'Full Swing' },
+                { id: true, label: 'Knockdown' },
+              ].map(t => (
+                <button
+                  key={String(t.id)}
+                  onClick={() => setIsKnockdown(t.id)}
+                  style={{
+                    padding: '8px',
+                    background: isKnockdown === t.id ? '#2d6a8a' : '#f5f5f5',
+                    color: isKnockdown === t.id ? 'white' : '#888',
+                    border: 'none', borderRadius: '6px',
+                    fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+                  }}
+                >{t.label}</button>
+              ))}
+            </div>
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: shotPos ? '12px' : '0' }}>
