@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 9, 2026 (AI summary persisted per round in Firestore)
+**Last Updated**: June 9, 2026 (Live weather wind in Club tab; weather captured on round start)
 
 ---
 
@@ -95,6 +95,12 @@
 - Matches by course name only, not by tees (noted on start screen)
 - Holes with no ghost data (e.g. past round was 9 holes, current is 18) show nothing
 
+### Weather Integration
+- **Club tab wind**: On app load, fetches current wind speed from Open-Meteo (no API key; free tier) using the device's GPS location
+- When location is available, the manual wind slider in the Club tab is replaced by a clock face picker — wind speed shown in the center, tap a clock position to set wind direction relative to the shot (12 = straight headwind, 6 = tailwind, 3/9 = crosswind); effective headwind/tailwind component = `windSpeed × cos(clockAngle)` and feeds the club recommendation
+- Falls back to the original manual slider if location is denied or the fetch fails
+- **Round weather capture**: when starting a round with today's date and GPS available, fetches full weather from Open-Meteo (temp °F, wind mph, wind direction °, sky condition from WMO code) and stores it as `round.weather` in Firestore — available for AI summary use; skipped for past-dated rounds
+
 ### GPS Shot Tracking
 - Mapbox satellite map
 - Log shot locations with GPS
@@ -129,5 +135,5 @@
 - Course difficulty tracking
 
 ### Phase 5: Environment & social
-- Weather data integration
+- ~~Weather data integration~~ — shipped (live wind in Club tab + round capture)
 - Social features
