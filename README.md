@@ -56,8 +56,14 @@ A React PWA for personal golf tracking with GPS shot mapping, scorekeeping, smar
 - Calculated from the lowest 1–8 differentials of your 20 most recent rated rounds × 0.96, with small-N adjustments per WHS rules; truncated to 1 decimal
 - **Course Handicap** (`Index × Slope/113 + (Rating − Par)`) shown in green in the round-start form as you enter rating and slope, and in the completed round summary alongside the differential
 
+### Nassau (Match Play)
+- Nassau toggle on the round-start screen — on/off, always visible
+- Per-hole Won / Halved / Lost buttons during play (below Hazard/Bunker); tap again to deselect
+- Hole header shows running status: `F: 2 UP · T: 1 UP` on holes 1–9, switches to `B:` on holes 10–18
+- Round summary shows a Nassau card with Front 9, Back 9, and Overall results
+
 ### Round Summary
-- Score vs par, handicap differential, and course handicap (when rating + slope are present and a handicap index exists)
+- Score vs par, handicap index, handicap differential, and course handicap (when applicable)
 - Scoring breakdown: Eagle, Birdie, Par, Bogey, Double, Triple+
 - Performance by par type (Par 3 / 4 / 5)
 - Stat tiles: FIR %, GIR %, Scrambling %, Bounce Back %, Putts, Avg Putts, Hazards, Bunkers, 3-Putts

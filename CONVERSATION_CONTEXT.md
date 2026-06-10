@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 10, 2026 (Handicap index + course handicap shipped)
+**Last Updated**: June 10, 2026 (Nassau match play + handicap index in round summary)
 
 ---
 
@@ -67,9 +67,15 @@
   - **Round summary**: shown alongside the differential line using actual round par
 - Rounds without rating or slope are excluded from the index calculation
 
+### Nassau (Match Play)
+- **Nassau toggle** on the round-start screen (On/Off, always visible) — stored as `round.matchPlay` in Firestore
+- Each hole has a `matchResult` field: `'won'`, `'halved'`, `'lost'`, or `null`; updated via Won/Halved/Lost buttons below Hazard/Bunker during play; tapping again deselects
+- **Hole header** shows running Nassau status: `🏌️ F: 2 UP · T: 1 UP` on holes 1–9, switches to `B:` on holes 10–18
+- **Round summary** shows a NASSAU card with three rows — Front 9, Back 9, Overall — colored green (up), red (down), or black (all square)
+
 ### Round Summary
 - Shown immediately after finishing a round and when selecting any past round from history
-- Displays total score vs par, handicap differential (when rating + slope are present), course handicap (when handicap index exists and rating + slope are present), scoring breakdown (Eagle/Birdie/Par/Bogey/Double/Triple+), and performance by par type (3/4/5)
+- Displays total score vs par, handicap index (when index exists), handicap differential (when rating + slope are present), course handicap (when handicap index exists and rating + slope are present), scoring breakdown (Eagle/Birdie/Par/Bogey/Double/Triple+), and performance by par type (3/4/5)
 - Stat tiles arranged in three rows: Row 1 — FIR, GIR, Scrambling; Row 2 — Bounce Back %, Putts, Avg Putts; Row 3 — Hazards, Bunkers, 3-Putts
 - FIR, GIR, and Scrambling display as a percentage (e.g. `75%`) with the raw fraction shown to the right in lighter text (e.g. `7/9`)
 - Bounce Back %: percentage of holes where player made par or better immediately after a bogey or worse; shown as N/A when no opportunities exist
