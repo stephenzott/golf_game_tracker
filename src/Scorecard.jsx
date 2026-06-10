@@ -2,6 +2,19 @@ import { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, query, orderBy, setDoc, doc } from 'firebase/firestore';
 import { getRoundSummary, canUseAI } from './geminiSummary';
 
+const wmoToCondition = (code) => {
+  if (code === 0) return 'Clear';
+  if (code === 1) return 'Mostly Clear';
+  if (code === 2) return 'Partly Cloudy';
+  if (code === 3) return 'Overcast';
+  if (code <= 48) return 'Fog';
+  if (code <= 55) return 'Drizzle';
+  if (code <= 67) return 'Rain';
+  if (code <= 77) return 'Snow';
+  if (code <= 82) return 'Showers';
+  return 'Thunderstorm';
+};
+
 const scoreLabel = (score, par) => {
   const d = score - par;
   if (d <= -2) return 'Eagle';
@@ -188,6 +201,24 @@ const Scorecard = ({ user, db }) => {
       return base;
     });
 
+    let weather = null;
+    const today = new Date().toLocaleDateString('en-CA');
+    if (roundDate === today && userLatLng) {
+      try {
+        const { lat, lng } = userLatLng;
+        const res = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m,wind_direction_10m,weather_code&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`
+        );
+        const data = await res.json();
+        weather = {
+          tempF: Math.round(data.current.temperature_2m),
+          windMph: Math.round(data.current.wind_speed_10m),
+          windDirDeg: Math.round(data.current.wind_direction_10m),
+          condition: wmoToCondition(data.current.weather_code),
+        };
+      } catch {}
+    }
+
     const newRound = {
       date: roundDate,
       holes: numHoles,
@@ -200,6 +231,7 @@ const Scorecard = ({ user, db }) => {
       slope: slope ? parseInt(slope, 10) : (preloadRound?.slope ?? null),
       ghostMode,
       ghostScores: computeGhostScores(numHoles),
+      weather,
     };
     const ref = await addDoc(collection(db, 'users', user.uid, 'rounds'), newRound);
     setRoundDocId(ref.id);

@@ -22,6 +22,59 @@ const sortSlots = (slots) =>
     })
     .map(({ _i, ...s }) => s);
 
+const ClockFace = ({ hour, onSelect, windMph }) => {
+  const S = 184, C = 92, R = 68;
+  const pos = (h) => {
+    const a = ((h % 12) * Math.PI) / 6;
+    return { x: C + R * Math.sin(a), y: C - R * Math.cos(a) };
+  };
+  const effectiveMph = hour !== null
+    ? Math.round(windMph * Math.cos(((hour % 12) * Math.PI) / 6) * 10) / 10
+    : null;
+  return (
+    <div>
+      <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`} style={{ display: 'block', margin: '0 auto' }}>
+        <circle cx={C} cy={C} r={C - 4} fill="#f8f8f8" stroke="#e8e8e8" strokeWidth="1" />
+        {hour !== null && (() => {
+          const p = pos(hour);
+          const dx = C - p.x, dy = C - p.y, len = Math.sqrt(dx * dx + dy * dy);
+          const ux = dx / len, uy = dy / len;
+          return (
+            <line
+              x1={p.x + ux * 16} y1={p.y + uy * 16}
+              x2={C - ux * 20} y2={C - uy * 20}
+              stroke="#1a5f3d" strokeWidth="1.5" strokeDasharray="4,3"
+            />
+          );
+        })()}
+        <text x={C} y={C + 5} textAnchor="middle" fontSize="15" fontWeight="700" fill="#1a1a1a">{windMph}</text>
+        <text x={C} y={C + 18} textAnchor="middle" fontSize="9" fill="#aaa">mph</text>
+        {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(h => {
+          const p = pos(h);
+          const sel = hour === h;
+          return (
+            <g key={h} onClick={() => onSelect(h)} style={{ cursor: 'pointer' }}>
+              <circle cx={p.x} cy={p.y} r={18} fill="transparent" />
+              <circle cx={p.x} cy={p.y} r={sel ? 14 : 11} fill={sel ? '#1a5f3d' : 'white'} stroke={sel ? '#1a5f3d' : '#ddd'} strokeWidth="1.5" />
+              <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize="10" fontWeight={sel ? '700' : '500'} fill={sel ? 'white' : '#888'}>{h}</text>
+            </g>
+          );
+        })}
+      </svg>
+      <p style={{ fontSize: '11px', color: '#999', margin: '8px 0 0 0', textAlign: 'center' }}>
+        {hour === null
+          ? '12 = headwind · 6 = tailwind · 3/9 = crosswind'
+          : effectiveMph !== null && Math.abs(effectiveMph) < 0.5
+            ? 'Crosswind — no distance adjustment'
+            : effectiveMph > 0
+              ? `~${effectiveMph} mph effective headwind`
+              : `~${Math.abs(effectiveMph)} mph effective tailwind`
+        }
+      </p>
+    </div>
+  );
+};
+
 const GolfBagIcon = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M6 11h12l-1.5 10H7.5L6 11z" />
@@ -38,8 +91,10 @@ const GolfTrackerApp = () => {
   const [distances, setDistances] = useState({});
   const [selectedClub, setSelectedClub] = useState('');
   const [distance, setDistance] = useState('');
-  // wind: positive = headwind, negative = tailwind (mph)
+  // wind: positive = headwind, negative = tailwind (mph); set by slider or synced from clock face
   const [wind, setWind] = useState(0);
+  const [weatherWindMph, setWeatherWindMph] = useState(null);
+  const [windClockHour, setWindClockHour] = useState(null);
   // elevation: positive = uphill, negative = downhill (feet)
   const [elevation, setElevation] = useState(0);
   // activeTab: controls which panel is shown — 'log' or 'select'
@@ -122,6 +177,30 @@ const GolfTrackerApp = () => {
     init();
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords: { latitude: lat, longitude: lng } }) => {
+        try {
+          const res = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=wind_speed_10m&wind_speed_unit=mph&timezone=auto`
+          );
+          const data = await res.json();
+          setWeatherWindMph(Math.round(data.current.wind_speed_10m));
+        } catch {}
+      },
+      () => {}
+    );
+  }, []);
+
+  useEffect(() => {
+    if (weatherWindMph !== null) {
+      const effective = windClockHour !== null
+        ? Math.round(weatherWindMph * Math.cos(((windClockHour % 12) * Math.PI) / 6) * 10) / 10
+        : 0;
+      setWind(effective);
+    }
+  }, [weatherWindMph, windClockHour]);
 
   useEffect(() => {
     if (!user || !saveEnabled.current) return;
@@ -676,28 +755,43 @@ const GolfTrackerApp = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#666' }}>
-                    Wind Speed (mph)
-                  </label>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input
-                      type="range"
-                      min="-30"
-                      max="30"
-                      value={wind}
-                      onChange={(e) => {
-                        setWind(parseFloat(e.target.value));
-                        setRecommendation(null);
-                      }}
-                      style={{ flex: 1 }}
-                    />
-                    <span style={{ fontSize: '13px', fontWeight: '600', minWidth: '40px' }}>
-                      {wind > 0 ? '⬅️' : wind < 0 ? '➡️' : '⏸'} {Math.abs(wind)}
-                    </span>
-                  </div>
-                  <p style={{ fontSize: '11px', color: '#999', margin: '6px 0 0 0' }}>
-                    Positive = headwind, Negative = tailwind
-                  </p>
+                  {weatherWindMph !== null ? (
+                    <>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '12px', color: '#666' }}>
+                        Wind Direction
+                      </label>
+                      <ClockFace
+                        hour={windClockHour}
+                        onSelect={h => { setWindClockHour(h); setRecommendation(null); }}
+                        windMph={weatherWindMph}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#666' }}>
+                        Wind Speed (mph)
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type="range"
+                          min="-30"
+                          max="30"
+                          value={wind}
+                          onChange={(e) => {
+                            setWind(parseFloat(e.target.value));
+                            setRecommendation(null);
+                          }}
+                          style={{ flex: 1 }}
+                        />
+                        <span style={{ fontSize: '13px', fontWeight: '600', minWidth: '40px' }}>
+                          {wind > 0 ? '⬅️' : wind < 0 ? '➡️' : '⏸'} {Math.abs(wind)}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: '11px', color: '#999', margin: '6px 0 0 0' }}>
+                        Positive = headwind, Negative = tailwind
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -726,11 +820,11 @@ const GolfTrackerApp = () => {
                 </p>
               </div>
 
-              {/* Reset both sliders to zero and clear any active recommendation */}
-              {(wind !== 0 || elevation !== 0) && (
+              {((weatherWindMph !== null ? windClockHour !== null : wind !== 0) || elevation !== 0) && (
                 <button
                   onClick={() => {
-                    setWind(0);
+                    if (weatherWindMph !== null) setWindClockHour(null);
+                    else setWind(0);
                     setElevation(0);
                     setRecommendation(null);
                   }}
