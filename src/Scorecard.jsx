@@ -87,6 +87,7 @@ const makeHole = (i) => ({
   putts: null,
   hazard: false,
   bunker: false,
+  matchResult: null,
 });
 
 const Scorecard = ({ user, db, handicapIndex }) => {
@@ -102,6 +103,7 @@ const Scorecard = ({ user, db, handicapIndex }) => {
   const [tees, setTees] = useState('');
   const [roundDate, setRoundDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [ghostMode, setGhostMode] = useState('none');
+  const [matchPlay, setMatchPlay] = useState(false);
   const [courseResults, setCourseResults] = useState([]);
   const [userLatLng, setUserLatLng] = useState(null);
   const [isEditingRound, setIsEditingRound] = useState(false);
@@ -232,6 +234,7 @@ const Scorecard = ({ user, db, handicapIndex }) => {
       slope: slope ? parseInt(slope, 10) : (preloadRound?.slope ?? null),
       ghostMode,
       ghostScores: computeGhostScores(numHoles),
+      matchPlay,
       weather,
     };
     const ref = await addDoc(collection(db, 'users', user.uid, 'rounds'), newRound);
@@ -357,6 +360,14 @@ const Scorecard = ({ user, db, handicapIndex }) => {
       : null;
     const courseHandicap = calculateCourseHandicap(handicapIndex, round.slope, round.rating, totalPar);
 
+    const sumBalance = (holes) => holes
+      .filter(h => h.matchResult != null)
+      .reduce((s, h) => s + (h.matchResult === 'won' ? 1 : h.matchResult === 'lost' ? -1 : 0), 0);
+    const nassauLabel = (n) => n === 0 ? 'All Square' : n > 0 ? `${n} Up` : `${Math.abs(n)} Down`;
+    const finalFront = round.matchPlay ? sumBalance(round.holeData.slice(0, 9)) : null;
+    const finalBack  = round.matchPlay ? sumBalance(round.holeData.slice(9))    : null;
+    const finalTotal = round.matchPlay ? sumBalance(round.holeData)             : null;
+
     const scoringBreakdown = [
       { label: 'Eagle', color: '#f59e0b', count: played.filter(h => h.score <= h.par - 2).length },
       { label: 'Birdie', color: '#ef4444', count: played.filter(h => h.score === h.par - 1).length },
@@ -474,6 +485,25 @@ const Scorecard = ({ user, db, handicapIndex }) => {
             <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#aaa' }}>Course Handicap: {courseHandicap}</p>
           )}
         </div>
+
+        {round.matchPlay && finalTotal !== null && (
+          <div style={{ background: 'white', borderRadius: '14px', padding: '16px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <p style={{ margin: '0 0 12px', fontSize: '12px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>NASSAU</p>
+            {[
+              { label: 'Front 9', val: finalFront },
+              { label: 'Back 9',  val: finalBack  },
+              { label: 'Overall', val: finalTotal  },
+            ].map(({ label, val }) => (
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f0f0f0' }}>
+                <span style={{ fontSize: '13px', color: '#888', fontWeight: '600' }}>{label}</span>
+                <span style={{ fontSize: '15px', fontWeight: '700',
+                  color: val > 0 ? '#1a5f3d' : val < 0 ? '#b91c1c' : '#1a1a1a' }}>
+                  {nassauLabel(val)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {scoringBreakdown.length > 0 && (
           <div style={{ background: 'white', borderRadius: '14px', padding: '16px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -848,6 +878,28 @@ const Scorecard = ({ user, db, handicapIndex }) => {
               <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#aaa', fontStyle: 'italic' }}>Ghost mode matches by course only, not by tees.</p>
             </div>
           )}
+
+          <div style={{ marginTop: '14px' }}>
+            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px', marginBottom: '8px' }}>NASSAU</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              {[{ value: false, label: 'Off' }, { value: true, label: 'On' }].map(opt => (
+                <button
+                  key={String(opt.value)}
+                  onClick={() => setMatchPlay(opt.value)}
+                  style={{
+                    padding: '10px 6px',
+                    background: matchPlay === opt.value ? '#1a5f3d' : '#f0f4f1',
+                    border: `1px solid ${matchPlay === opt.value ? '#1a5f3d' : '#c8ddd2'}`,
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: matchPlay === opt.value ? 'white' : '#1a5f3d',
+                    cursor: 'pointer',
+                  }}
+                >{opt.label}</button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
@@ -883,6 +935,16 @@ const Scorecard = ({ user, db, handicapIndex }) => {
   const runningPar = confirmed.reduce((s, h) => s + h.par, 0);
   const runningDiff = runningScore - runningPar;
   const isLast = currentHole === round.holes - 1;
+
+  // Nassau helpers
+  const calcBalance = (holes) => holes
+    .filter(h => h.matchResult != null)
+    .reduce((s, h) => s + (h.matchResult === 'won' ? 1 : h.matchResult === 'lost' ? -1 : 0), 0);
+  const bLabel = (n) => n === 0 ? 'AS' : n > 0 ? `${n} UP` : `${Math.abs(n)} DN`;
+  const frontBalance = round.matchPlay ? calcBalance(round.holeData.slice(0, 9)) : 0;
+  const backBalance  = round.matchPlay ? calcBalance(round.holeData.slice(9))    : 0;
+  const totalBalance = round.matchPlay ? calcBalance(round.holeData)             : 0;
+  const onFront = currentHole < 9;
 
   const TogglePair = ({ label, field, disabled }) => (
     <div style={{ background: 'white', borderRadius: '12px', padding: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -922,6 +984,11 @@ const Scorecard = ({ user, db, handicapIndex }) => {
           {round.ghostMode !== 'none' && round.ghostScores?.[currentHole] != null && (
             <p style={{ margin: '4px 0 0', fontSize: '11px', opacity: 0.8, fontWeight: '600', letterSpacing: '0.5px' }}>
               👻 {round.ghostScores[currentHole]}
+            </p>
+          )}
+          {round.matchPlay && (
+            <p style={{ margin: '4px 0 0', fontSize: '11px', opacity: 0.8, fontWeight: '600', letterSpacing: '0.5px' }}>
+              🏌️ {onFront ? `F: ${bLabel(frontBalance)}` : `B: ${bLabel(backBalance)}`}  ·  T: {bLabel(totalBalance)}
             </p>
           )}
         </div>
@@ -1023,6 +1090,35 @@ const Scorecard = ({ user, db, handicapIndex }) => {
             </button>
           ))}
         </div>
+
+        {/* Match play result */}
+        {round.matchPlay && (
+          <div style={{ background: 'white', borderRadius: '12px', padding: '14px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>NASSAU — THIS HOLE</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+              {[
+                { value: 'won', label: 'Won', color: '#1a5f3d' },
+                { value: 'halved', label: 'Halved', color: '#555' },
+                { value: 'lost', label: 'Lost', color: '#b91c1c' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => updateHole('matchResult', hole.matchResult === opt.value ? null : opt.value)}
+                  style={{
+                    padding: '12px 6px',
+                    background: hole.matchResult === opt.value ? opt.color : '#f5f5f5',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    color: hole.matchResult === opt.value ? 'white' : '#aaa',
+                    cursor: 'pointer',
+                  }}
+                >{opt.label}</button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Navigation */}
         <div style={{ display: 'grid', gridTemplateColumns: currentHole > 0 ? '1fr 2fr' : '1fr', gap: '10px', marginBottom: '10px' }}>
