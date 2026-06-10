@@ -87,6 +87,7 @@ const makeHole = (i) => ({
   putts: null,
   hazard: false,
   bunker: false,
+  matchResult: null,
 });
 
 const Scorecard = ({ user, db, handicapIndex }) => {
@@ -102,6 +103,7 @@ const Scorecard = ({ user, db, handicapIndex }) => {
   const [tees, setTees] = useState('');
   const [roundDate, setRoundDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [ghostMode, setGhostMode] = useState('none');
+  const [matchPlay, setMatchPlay] = useState(false);
   const [courseResults, setCourseResults] = useState([]);
   const [userLatLng, setUserLatLng] = useState(null);
   const [isEditingRound, setIsEditingRound] = useState(false);
@@ -232,6 +234,7 @@ const Scorecard = ({ user, db, handicapIndex }) => {
       slope: slope ? parseInt(slope, 10) : (preloadRound?.slope ?? null),
       ghostMode,
       ghostScores: computeGhostScores(numHoles),
+      matchPlay,
       weather,
     };
     const ref = await addDoc(collection(db, 'users', user.uid, 'rounds'), newRound);
@@ -357,6 +360,13 @@ const Scorecard = ({ user, db, handicapIndex }) => {
       : null;
     const courseHandicap = calculateCourseHandicap(handicapIndex, round.slope, round.rating, totalPar);
 
+    const finalMatchBalance = round.matchPlay
+      ? round.holeData.filter(h => h.matchResult != null).reduce(
+          (s, h) => s + (h.matchResult === 'won' ? 1 : h.matchResult === 'lost' ? -1 : 0), 0)
+      : null;
+    const matchHolesRecorded = round.matchPlay ? round.holeData.filter(h => h.matchResult != null).length : 0;
+    const finalMatchOver = finalMatchBalance !== null && Math.abs(finalMatchBalance) > (round.holes - matchHolesRecorded);
+
     const scoringBreakdown = [
       { label: 'Eagle', color: '#f59e0b', count: played.filter(h => h.score <= h.par - 2).length },
       { label: 'Birdie', color: '#ef4444', count: played.filter(h => h.score === h.par - 1).length },
@@ -474,6 +484,22 @@ const Scorecard = ({ user, db, handicapIndex }) => {
             <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#aaa' }}>Course Handicap: {courseHandicap}</p>
           )}
         </div>
+
+        {round.matchPlay && finalMatchBalance !== null && (
+          <div style={{ background: 'white', borderRadius: '14px', padding: '16px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+            <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>MATCH PLAY RESULT</p>
+            <p style={{ margin: 0, fontSize: '28px', fontWeight: '700', letterSpacing: '-1px',
+              color: finalMatchBalance > 0 ? '#1a5f3d' : finalMatchBalance < 0 ? '#b91c1c' : '#1a1a1a' }}>
+              {finalMatchBalance === 0 ? 'All Square'
+                : finalMatchBalance > 0
+                  ? (finalMatchOver ? `${finalMatchBalance} UP` : `${finalMatchBalance} UP`)
+                  : (finalMatchOver ? `${Math.abs(finalMatchBalance)} DOWN` : `${Math.abs(finalMatchBalance)} DOWN`)}
+            </p>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#aaa' }}>
+              {matchHolesRecorded} hole{matchHolesRecorded !== 1 ? 's' : ''} recorded
+            </p>
+          </div>
+        )}
 
         {scoringBreakdown.length > 0 && (
           <div style={{ background: 'white', borderRadius: '14px', padding: '16px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -848,6 +874,28 @@ const Scorecard = ({ user, db, handicapIndex }) => {
               <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#aaa', fontStyle: 'italic' }}>Ghost mode matches by course only, not by tees.</p>
             </div>
           )}
+
+          <div style={{ marginTop: '14px' }}>
+            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px', marginBottom: '8px' }}>MATCH PLAY</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              {[{ value: false, label: 'Off' }, { value: true, label: 'On' }].map(opt => (
+                <button
+                  key={String(opt.value)}
+                  onClick={() => setMatchPlay(opt.value)}
+                  style={{
+                    padding: '10px 6px',
+                    background: matchPlay === opt.value ? '#1a5f3d' : '#f0f4f1',
+                    border: `1px solid ${matchPlay === opt.value ? '#1a5f3d' : '#c8ddd2'}`,
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: matchPlay === opt.value ? 'white' : '#1a5f3d',
+                    cursor: 'pointer',
+                  }}
+                >{opt.label}</button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
@@ -883,6 +931,17 @@ const Scorecard = ({ user, db, handicapIndex }) => {
   const runningPar = confirmed.reduce((s, h) => s + h.par, 0);
   const runningDiff = runningScore - runningPar;
   const isLast = currentHole === round.holes - 1;
+
+  // Match play helpers
+  const matchBalance = round.matchPlay
+    ? round.holeData.filter(h => h.matchResult != null).reduce(
+        (s, h) => s + (h.matchResult === 'won' ? 1 : h.matchResult === 'lost' ? -1 : 0), 0)
+    : 0;
+  const matchHolesLeft = round.holes - currentHole;
+  const matchOver = round.matchPlay && Math.abs(matchBalance) > matchHolesLeft;
+  const matchLabel = matchBalance === 0 ? 'AS'
+    : matchBalance > 0 ? `${matchBalance} UP`
+    : `${Math.abs(matchBalance)} DOWN`;
 
   const TogglePair = ({ label, field, disabled }) => (
     <div style={{ background: 'white', borderRadius: '12px', padding: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -922,6 +981,11 @@ const Scorecard = ({ user, db, handicapIndex }) => {
           {round.ghostMode !== 'none' && round.ghostScores?.[currentHole] != null && (
             <p style={{ margin: '4px 0 0', fontSize: '11px', opacity: 0.8, fontWeight: '600', letterSpacing: '0.5px' }}>
               👻 {round.ghostScores[currentHole]}
+            </p>
+          )}
+          {round.matchPlay && (
+            <p style={{ margin: '4px 0 0', fontSize: '11px', opacity: 0.8, fontWeight: '600', letterSpacing: '0.5px' }}>
+              🏌️ {matchOver ? (matchBalance > 0 ? 'WON' : 'LOST') : matchLabel}
             </p>
           )}
         </div>
@@ -1023,6 +1087,35 @@ const Scorecard = ({ user, db, handicapIndex }) => {
             </button>
           ))}
         </div>
+
+        {/* Match play result */}
+        {round.matchPlay && (
+          <div style={{ background: 'white', borderRadius: '12px', padding: '14px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>MATCH PLAY — THIS HOLE</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+              {[
+                { value: 'won', label: 'Won', color: '#1a5f3d' },
+                { value: 'halved', label: 'Halved', color: '#555' },
+                { value: 'lost', label: 'Lost', color: '#b91c1c' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => updateHole('matchResult', hole.matchResult === opt.value ? null : opt.value)}
+                  style={{
+                    padding: '12px 6px',
+                    background: hole.matchResult === opt.value ? opt.color : '#f5f5f5',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    color: hole.matchResult === opt.value ? 'white' : '#aaa',
+                    cursor: 'pointer',
+                  }}
+                >{opt.label}</button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Navigation */}
         <div style={{ display: 'grid', gridTemplateColumns: currentHole > 0 ? '1fr 2fr' : '1fr', gap: '10px', marginBottom: '10px' }}>
