@@ -4,8 +4,9 @@ import { TrendingUp, Plus, Trash2, Target, LogOut, MapPin, Flag } from 'lucide-r
 import ShotTracker from './src/ShotTracker.jsx';
 import Scorecard from './src/Scorecard.jsx';
 import { signInWithRedirect, signInWithPopup, getRedirectResult, signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { auth, googleProvider, db } from './src/firebase.js';
+import { calculateHandicapIndex } from './src/handicap.js';
 
 const EMPTY_SLOT = () => ({ name: '', distance: '', knockdownDistance: '' });
 
@@ -114,6 +115,7 @@ const GolfTrackerApp = () => {
   const [editingBag, setEditingBag] = useState(false);
   const [showMax, setShowMax] = useState(false);
   const [showKnockdownBag, setShowKnockdownBag] = useState(false);
+  const [handicap, setHandicap] = useState({ index: null, message: null });
   // Stays false until the initial Firestore load completes, preventing saves
   // triggered by setUser() firing before getDoc() resolves
   const saveEnabled = useRef(false);
@@ -205,6 +207,15 @@ const GolfTrackerApp = () => {
       setWind(effective);
     }
   }, [weatherWindMph, windClockHour]);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'users', user.uid, 'rounds'), orderBy('date', 'desc'));
+    getDocs(q).then(snap => {
+      const rounds = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setHandicap(calculateHandicapIndex(rounds));
+    }).catch(() => {});
+  }, [user]);
 
   useEffect(() => {
     if (!user || !saveEnabled.current) return;
@@ -491,7 +502,12 @@ const GolfTrackerApp = () => {
             title="Sign out"
             style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.8)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '4px' }}
           >
-            <span>{user.displayName?.split(' ')[0]}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+              <span>{user.displayName?.split(' ')[0]}</span>
+              {handicap.index !== null && (
+                <span style={{ fontSize: '11px', opacity: 0.7, lineHeight: 1 }}>HCP {handicap.index}</span>
+              )}
+            </div>
             <LogOut size={16} strokeWidth={1.5} />
           </button>
         </div>
@@ -1247,7 +1263,7 @@ const GolfTrackerApp = () => {
       )}
 
       {activeTab === 'score' && (
-        <Scorecard user={user} db={db} />
+        <Scorecard user={user} db={db} handicapIndex={handicap.index} />
       )}
 
       <style>{`
