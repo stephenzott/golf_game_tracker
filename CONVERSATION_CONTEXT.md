@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 9, 2026 (Live weather wind in Club tab; weather captured on round start)
+**Last Updated**: June 9, 2026 (Club tab shows "Plays As" distance; weather wind clock face)
 
 ---
 
@@ -30,7 +30,8 @@
 ### Club Distance Tracking
 - Personalized base distances per club, blended with logged shots using weighted averaging
 - Range shot type with 1/10th weighting (range shots count less than on-course shots)
-- Smart club recommendations — only suggests clubs that can reach the target distance
+- Smart club recommendations — only suggests clubs that can reach the target distance; club is selected based on effective playing distance (conditions applied first), not raw target
+- **"Plays As" framing** — when wind or elevation is set, a PLAYS AS tile appears in the recommendation showing the effective hole distance (headwind/uphill = longer, tailwind/downhill = shorter); hidden when no conditions are set (only CONFIDENCE tile shows)
 - Outlier filtering — once 15+ shots are logged for a club, shots below 60% of the raw mean are excluded from both the weighted blended distance and the displayed average; only low outliers (mishits) are trimmed, not long shots; applies regardless of shot type (course, range, tracked)
 - IQR range display — Q1–Q3 typical range shown below the distance in both the Log and Bag tabs; uses outlier-filtered shots; requires 4+ shots to display; computed via linear interpolation
 - Max toggle — button in Log tab (above distance history) and Bag tab header; swaps weighted average for all-time raw max per club; max uses unfiltered shots across all types
