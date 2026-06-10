@@ -96,7 +96,6 @@ A React PWA for personal golf tracking with GPS shot mapping, scorekeeping, smar
 ### Phase 2 — Quick wins
 - ~~Knockdown shot type~~ — shipped
 - Club distance chart visualization
-- Export round data to CSV
 - Handicap index calculation
 
 ### Phase 3 — GPS & data import
@@ -109,6 +108,7 @@ A React PWA for personal golf tracking with GPS shot mapping, scorekeeping, smar
 - Multiple rounds comparison
 - Handicap calculation
 - Course difficulty tracking
+- Export round data to CSV
 
 ### Phase 5 — Social
 - Social features

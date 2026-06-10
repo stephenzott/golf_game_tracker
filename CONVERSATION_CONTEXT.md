@@ -126,7 +126,6 @@
 ### Phase 2: Quick wins
 - ~~Knockdown shot type~~ — shipped (toggle in Log/Track tabs, bag base distances, Bag tab view, club suggestion)
 - Chart visualization of distances per club
-- Export round data to CSV
 - Handicap differential calculation (uses rating + slope now stored on rounds)
 
 ### Phase 3: GPS & spatial
@@ -139,6 +138,7 @@
 - Multiple rounds comparison
 - Handicap calculation
 - Course difficulty tracking
+- Export round data to CSV
 
 ### Phase 5: Environment & social
 - ~~Weather data integration~~ — shipped (live wind in Club tab + round capture)
