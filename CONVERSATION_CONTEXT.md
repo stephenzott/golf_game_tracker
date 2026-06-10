@@ -17,7 +17,7 @@
 
 **Hosting**: Free tier only — user pays for Claude, nothing else.
 
-**Deployment**: Always `npm run build && firebase deploy` from `main`. Never run `firebase deploy` alone — it would ship stale `dist` contents. This has caused bugs in the past (e.g. a model name change not making it to production because build was skipped). Feature branches are tested locally only (`npm run dev`).
+**Deployment**: Always `npm run build && firebase deploy` as a single chained command from `main`. Never run `firebase deploy` alone — it would ship stale `dist` contents. Running the build separately earlier in the session (e.g. to test for errors) is not sufficient; the chain must be run at deploy time. This has caused bugs in the past (e.g. a model name change not making it to production because build was skipped). Feature branches are tested locally only (`npm run dev`).
 
 ---
 
