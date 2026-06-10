@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 9, 2026 (Knockdown shot type shipped)
+**Last Updated**: June 10, 2026 (Handicap index + course handicap shipped)
 
 ---
 
@@ -59,9 +59,17 @@
 - Delete button on each round in history view (removes from Firestore + UI instantly)
 - GIR is auto-derived from score and putts using `(score - putts) <= (par - 2)`; no manual toggle — computed whenever both values are set
 
+### Handicap
+- **Handicap Index** (WHS 2020) displayed under the user's first name in the top-right header — hidden until 3+ rated rounds exist
+- Calculated in `src/handicap.js`: lowest 1–8 differentials from the 20 most recent rated rounds × 0.96, with small-N adjustments (−2.0 for 3 rounds, −1.0 for 4); truncated to 1 decimal
+- **Course Handicap** (`Index × Slope/113 + (Rating − Par)`, rounded to integer) shown in two places:
+  - **Round-start form**: appears in green below rating/slope fields when both are entered; uses par 72 as default
+  - **Round summary**: shown alongside the differential line using actual round par
+- Rounds without rating or slope are excluded from the index calculation
+
 ### Round Summary
 - Shown immediately after finishing a round and when selecting any past round from history
-- Displays total score vs par, handicap differential (when rating + slope are present), scoring breakdown (Eagle/Birdie/Par/Bogey/Double/Triple+), and performance by par type (3/4/5)
+- Displays total score vs par, handicap differential (when rating + slope are present), course handicap (when handicap index exists and rating + slope are present), scoring breakdown (Eagle/Birdie/Par/Bogey/Double/Triple+), and performance by par type (3/4/5)
 - Stat tiles arranged in three rows: Row 1 — FIR, GIR, Scrambling; Row 2 — Bounce Back %, Putts, Avg Putts; Row 3 — Hazards, Bunkers, 3-Putts
 - FIR, GIR, and Scrambling display as a percentage (e.g. `75%`) with the raw fraction shown to the right in lighter text (e.g. `7/9`)
 - Bounce Back %: percentage of holes where player made par or better immediately after a bogey or worse; shown as N/A when no opportunities exist
@@ -125,8 +133,8 @@
 
 ### Phase 2: Quick wins
 - ~~Knockdown shot type~~ — shipped (toggle in Log/Track tabs, bag base distances, Bag tab view, club suggestion)
+- ~~Handicap differential calculation~~ — shipped; also includes full handicap index (WHS 2020) in header and course handicap in round-start form and summary
 - Chart visualization of distances per club
-- Handicap differential calculation (uses rating + slope now stored on rounds)
 
 ### Phase 3: GPS & spatial
 - **GPS shot coordinate persistence** — currently `ShotTracker.jsx` computes both the shot origin (`shotPos: [lng, lat]`) and ball landing (`coords: [lng, lat]`) but only passes `club` + `yards` up to the parent via `onLogDistance`; future work would persist both coordinate pairs per shot in Firestore so that post-round analysis can show exact shot paths, dispersion patterns per club (e.g., always pulling left with 7-iron), course-specific tendencies (which holes cause trouble), and spatial data for the AI coaching summary
@@ -136,7 +144,7 @@
 ### Phase 4: Multi-round analytics
 - **AI season/trend summary** — extend the Gemini coaching agent to analyze all completed rounds together, not just a single round; identify trends over time (e.g. improving GIR, recurring bogey patterns, best courses)
 - Multiple rounds comparison
-- Handicap calculation
+- ~~Handicap calculation~~ — shipped
 - Course difficulty tracking
 - Export round data to CSV
 
