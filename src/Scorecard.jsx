@@ -464,6 +464,9 @@ const Scorecard = ({ user, db, handicapIndex }) => {
             {diff === 0 ? 'E' : diff > 0 ? `+${diff}` : diff}
           </div>
           <p style={{ margin: '6px 0 0', fontSize: '15px', color: '#888' }}>{totalScore} strokes · {totalPar} par</p>
+          {handicapIndex !== null && (
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#aaa' }}>Handicap Index: {handicapIndex}</p>
+          )}
           {handicapDiff !== null && (
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#aaa' }}>Differential: {handicapDiff > 0 ? '+' : ''}{handicapDiff}</p>
           )}
