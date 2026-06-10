@@ -333,49 +333,47 @@ const GolfTrackerApp = () => {
     return Math.max(...shots.map(s => s.value));
   };
 
-  // Finds the best club for a given target distance, then adjusts for wind and elevation
+  // Finds the best club for a given target distance, accounting for wind and elevation
   const handleGetRecommendation = (targetDistance) => {
+    // Compute effective playing distance — headwind/uphill play longer, tailwind/downhill shorter
+    let playsAs = targetDistance;
+    let adjustmentNotes = [];
+
+    if (wind !== 0) {
+      const windFactor = wind > 0 ? 0.02 : 0.015;
+      const windAdjustment = Math.abs(wind) * windFactor;
+      playsAs = wind > 0 ? playsAs + windAdjustment : playsAs - windAdjustment;
+      adjustmentNotes.push(`${wind > 0 ? 'Headwind' : 'Tailwind'}: ${Math.abs(wind).toFixed(1)} mph`);
+    }
+
+    if (elevation !== 0) {
+      const elevationFactor = 0.1;
+      const elevationAdjustment = (Math.abs(elevation) / 100) * elevationFactor * targetDistance;
+      playsAs = elevation > 0 ? playsAs + elevationAdjustment : playsAs - elevationAdjustment;
+      adjustmentNotes.push(`${elevation > 0 ? 'Uphill' : 'Downhill'}: ${Math.abs(elevation)} ft`);
+    }
+
     let bestClub = null;
     let closestDiff = Infinity;
 
-    // Only consider clubs that can reach the target; fall back to the longest club if none can
-    const reachable = clubs.filter(club => getBlendedDistance(club).blended >= targetDistance);
+    // Select club based on effective playing distance, not raw target
+    const reachable = clubs.filter(club => getBlendedDistance(club).blended >= playsAs);
     const candidates = reachable.length > 0 ? reachable : clubs;
 
     candidates.forEach(club => {
       const { blended, userShots } = getBlendedDistance(club);
-      const diff = Math.abs(blended - targetDistance);
+      const diff = Math.abs(blended - playsAs);
       if (diff < closestDiff) {
         closestDiff = diff;
         bestClub = { name: club, blended, userShots };
       }
     });
 
-    let adjustedDistance = bestClub.blended;
-    let adjustmentNotes = [];
-
-    // Headwind costs ~2 yards per mph; tailwind gains ~1.5 yards per mph
-    if (wind !== 0) {
-      const windFactor = wind > 0 ? 0.02 : 0.015;
-      const windAdjustment = Math.abs(wind) * windFactor;
-      adjustedDistance = wind > 0 ? adjustedDistance - windAdjustment : adjustedDistance + windAdjustment;
-      adjustmentNotes.push(`${wind > 0 ? 'Headwind' : 'Tailwind'}: ${Math.abs(wind).toFixed(1)} mph`);
-    }
-
-    // Elevation changes distance by ~10% per 100 feet of rise/drop
-    if (elevation !== 0) {
-      const elevationFactor = 0.1;
-      const elevationAdjustment = (Math.abs(elevation) / 100) * elevationFactor * bestClub.blended;
-      adjustedDistance = elevation > 0 ? adjustedDistance - elevationAdjustment : adjustedDistance + elevationAdjustment;
-      adjustmentNotes.push(`${elevation > 0 ? 'Uphill' : 'Downhill'}: ${Math.abs(elevation)} ft`);
-    }
-
-    // Confidence (accuracy) reflects how closely the best club's blended distance matched the target
     setRecommendation({
       club: bestClub.name,
       baseDistance: bestClub.blended.toFixed(1),
       userShots: bestClub.userShots,
-      adjustedDistance: adjustedDistance.toFixed(1),
+      playsAs: adjustmentNotes.length > 0 ? playsAs.toFixed(1) : null,
       adjustmentNotes,
       accuracy: (100 - (closestDiff / bestClub.blended * 100)).toFixed(0)
     });
@@ -890,15 +888,17 @@ const GolfTrackerApp = () => {
                       padding: '16px',
                       marginBottom: '20px'
                     }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                        <div>
-                          <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#999', fontWeight: '600' }}>
-                            ADJUSTED DISTANCE
-                          </p>
-                          <p style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: '#1a5f3d' }}>
-                            {recommendation.adjustedDistance} yds
-                          </p>
-                        </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: recommendation.playsAs ? '1fr 1fr' : '1fr', gap: '16px' }}>
+                        {recommendation.playsAs && (
+                          <div>
+                            <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#999', fontWeight: '600' }}>
+                              PLAYS AS
+                            </p>
+                            <p style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: '#1a5f3d' }}>
+                              {recommendation.playsAs} yds
+                            </p>
+                          </div>
+                        )}
                         <div>
                           <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#999', fontWeight: '600' }}>
                             CONFIDENCE
