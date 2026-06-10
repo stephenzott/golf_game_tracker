@@ -360,12 +360,13 @@ const Scorecard = ({ user, db, handicapIndex }) => {
       : null;
     const courseHandicap = calculateCourseHandicap(handicapIndex, round.slope, round.rating, totalPar);
 
-    const finalMatchBalance = round.matchPlay
-      ? round.holeData.filter(h => h.matchResult != null).reduce(
-          (s, h) => s + (h.matchResult === 'won' ? 1 : h.matchResult === 'lost' ? -1 : 0), 0)
-      : null;
-    const matchHolesRecorded = round.matchPlay ? round.holeData.filter(h => h.matchResult != null).length : 0;
-    const finalMatchOver = finalMatchBalance !== null && Math.abs(finalMatchBalance) > (round.holes - matchHolesRecorded);
+    const sumBalance = (holes) => holes
+      .filter(h => h.matchResult != null)
+      .reduce((s, h) => s + (h.matchResult === 'won' ? 1 : h.matchResult === 'lost' ? -1 : 0), 0);
+    const nassauLabel = (n) => n === 0 ? 'All Square' : n > 0 ? `${n} Up` : `${Math.abs(n)} Down`;
+    const finalFront = round.matchPlay ? sumBalance(round.holeData.slice(0, 9)) : null;
+    const finalBack  = round.matchPlay ? sumBalance(round.holeData.slice(9))    : null;
+    const finalTotal = round.matchPlay ? sumBalance(round.holeData)             : null;
 
     const scoringBreakdown = [
       { label: 'Eagle', color: '#f59e0b', count: played.filter(h => h.score <= h.par - 2).length },
@@ -485,19 +486,22 @@ const Scorecard = ({ user, db, handicapIndex }) => {
           )}
         </div>
 
-        {round.matchPlay && finalMatchBalance !== null && (
-          <div style={{ background: 'white', borderRadius: '14px', padding: '16px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-            <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>MATCH PLAY RESULT</p>
-            <p style={{ margin: 0, fontSize: '28px', fontWeight: '700', letterSpacing: '-1px',
-              color: finalMatchBalance > 0 ? '#1a5f3d' : finalMatchBalance < 0 ? '#b91c1c' : '#1a1a1a' }}>
-              {finalMatchBalance === 0 ? 'All Square'
-                : finalMatchBalance > 0
-                  ? (finalMatchOver ? `${finalMatchBalance} UP` : `${finalMatchBalance} UP`)
-                  : (finalMatchOver ? `${Math.abs(finalMatchBalance)} DOWN` : `${Math.abs(finalMatchBalance)} DOWN`)}
-            </p>
-            <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#aaa' }}>
-              {matchHolesRecorded} hole{matchHolesRecorded !== 1 ? 's' : ''} recorded
-            </p>
+        {round.matchPlay && finalTotal !== null && (
+          <div style={{ background: 'white', borderRadius: '14px', padding: '16px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <p style={{ margin: '0 0 12px', fontSize: '12px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>NASSAU</p>
+            {[
+              { label: 'Front 9', val: finalFront },
+              { label: 'Back 9',  val: finalBack  },
+              { label: 'Overall', val: finalTotal  },
+            ].map(({ label, val }) => (
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f0f0f0' }}>
+                <span style={{ fontSize: '13px', color: '#888', fontWeight: '600' }}>{label}</span>
+                <span style={{ fontSize: '15px', fontWeight: '700',
+                  color: val > 0 ? '#1a5f3d' : val < 0 ? '#b91c1c' : '#1a1a1a' }}>
+                  {nassauLabel(val)}
+                </span>
+              </div>
+            ))}
           </div>
         )}
 
@@ -876,7 +880,7 @@ const Scorecard = ({ user, db, handicapIndex }) => {
           )}
 
           <div style={{ marginTop: '14px' }}>
-            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px', marginBottom: '8px' }}>MATCH PLAY</label>
+            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px', marginBottom: '8px' }}>NASSAU</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               {[{ value: false, label: 'Off' }, { value: true, label: 'On' }].map(opt => (
                 <button
@@ -932,16 +936,15 @@ const Scorecard = ({ user, db, handicapIndex }) => {
   const runningDiff = runningScore - runningPar;
   const isLast = currentHole === round.holes - 1;
 
-  // Match play helpers
-  const matchBalance = round.matchPlay
-    ? round.holeData.filter(h => h.matchResult != null).reduce(
-        (s, h) => s + (h.matchResult === 'won' ? 1 : h.matchResult === 'lost' ? -1 : 0), 0)
-    : 0;
-  const matchHolesLeft = round.holes - currentHole;
-  const matchOver = round.matchPlay && Math.abs(matchBalance) > matchHolesLeft;
-  const matchLabel = matchBalance === 0 ? 'AS'
-    : matchBalance > 0 ? `${matchBalance} UP`
-    : `${Math.abs(matchBalance)} DOWN`;
+  // Nassau helpers
+  const calcBalance = (holes) => holes
+    .filter(h => h.matchResult != null)
+    .reduce((s, h) => s + (h.matchResult === 'won' ? 1 : h.matchResult === 'lost' ? -1 : 0), 0);
+  const bLabel = (n) => n === 0 ? 'AS' : n > 0 ? `${n} UP` : `${Math.abs(n)} DN`;
+  const frontBalance = round.matchPlay ? calcBalance(round.holeData.slice(0, 9)) : 0;
+  const backBalance  = round.matchPlay ? calcBalance(round.holeData.slice(9))    : 0;
+  const totalBalance = round.matchPlay ? calcBalance(round.holeData)             : 0;
+  const onFront = currentHole < 9;
 
   const TogglePair = ({ label, field, disabled }) => (
     <div style={{ background: 'white', borderRadius: '12px', padding: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -985,7 +988,7 @@ const Scorecard = ({ user, db, handicapIndex }) => {
           )}
           {round.matchPlay && (
             <p style={{ margin: '4px 0 0', fontSize: '11px', opacity: 0.8, fontWeight: '600', letterSpacing: '0.5px' }}>
-              🏌️ {matchOver ? (matchBalance > 0 ? 'WON' : 'LOST') : matchLabel}
+              🏌️ {onFront ? `F: ${bLabel(frontBalance)}` : `B: ${bLabel(backBalance)}`}  ·  T: {bLabel(totalBalance)}
             </p>
           )}
         </div>
@@ -1091,7 +1094,7 @@ const Scorecard = ({ user, db, handicapIndex }) => {
         {/* Match play result */}
         {round.matchPlay && (
           <div style={{ background: 'white', borderRadius: '12px', padding: '14px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>MATCH PLAY — THIS HOLE</p>
+            <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>NASSAU — THIS HOLE</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
               {[
                 { value: 'won', label: 'Won', color: '#1a5f3d' },
