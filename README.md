@@ -51,8 +51,13 @@ A React PWA for personal golf tracking with GPS shot mapping, scorekeeping, smar
 - Date picker — defaults to today, supports logging past rounds after the fact
 - Round history with per-round delete support
 
+### Handicap
+- **Handicap Index** (WHS 2020) displayed under your name in the top-right header — hidden until 3+ rated rounds are logged
+- Calculated from the lowest 1–8 differentials of your 20 most recent rated rounds × 0.96, with small-N adjustments per WHS rules; truncated to 1 decimal
+- **Course Handicap** (`Index × Slope/113 + (Rating − Par)`) shown in green in the round-start form as you enter rating and slope, and in the completed round summary alongside the differential
+
 ### Round Summary
-- Score vs par, handicap differential (when rating + slope are present)
+- Score vs par, handicap differential, and course handicap (when rating + slope are present and a handicap index exists)
 - Scoring breakdown: Eagle, Birdie, Par, Bogey, Double, Triple+
 - Performance by par type (Par 3 / 4 / 5)
 - Stat tiles: FIR %, GIR %, Scrambling %, Bounce Back %, Putts, Avg Putts, Hazards, Bunkers, 3-Putts
@@ -95,8 +100,8 @@ A React PWA for personal golf tracking with GPS shot mapping, scorekeeping, smar
 
 ### Phase 2 — Quick wins
 - ~~Knockdown shot type~~ — shipped
+- ~~Handicap index + course handicap~~ — shipped
 - Club distance chart visualization
-- Handicap index calculation
 
 ### Phase 3 — GPS & data import
 - GPS shot coordinate persistence — save lat/lng for each shot origin and landing; enables dispersion analysis and AI spatial context
@@ -106,7 +111,7 @@ A React PWA for personal golf tracking with GPS shot mapping, scorekeeping, smar
 ### Phase 4 — Multi-round analytics
 - AI season/trend summary — analyze all completed rounds together for long-term patterns
 - Multiple rounds comparison
-- Handicap calculation
+- ~~Handicap calculation~~ — shipped
 - Course difficulty tracking
 - Export round data to CSV
 
