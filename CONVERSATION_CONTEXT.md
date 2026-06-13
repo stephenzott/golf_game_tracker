@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 10, 2026 (Nassau match play + handicap index in round summary)
+**Last Updated**: June 13, 2026 (editable round date in summary)
 
 ---
 
@@ -82,6 +82,7 @@
 - Course comparison: when other rounds exist at the same course, each stat shows a historical average below it for context
 - Full hole-by-hole table with score circles, FIR, GIR, putts, and penalties
 - **Inline tees editor** in the summary header (below course name) — editable input field; saves to Firestore on blur; allows adding/editing tees for rounds already entered; shows "Add tees…" placeholder when blank
+- **Inline date editor** in the summary header — the date next to "ROUND COMPLETE" is an editable date input; saves to Firestore on blur; allows correcting a wrong date after a round is entered
 - **Post to GHIN button** — appears only when a round was just finished (`justFinished` state); not shown when viewing history; opens ghin.com in a new tab for manual score entry; no official GHIN API exists so data cannot be pushed automatically
 
 ### AI Coaching Summary
