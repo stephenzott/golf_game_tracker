@@ -452,7 +452,23 @@ const Scorecard = ({ user, db, handicapIndex }) => {
           <button onClick={() => { setRound(null); setShowHistory(true); }} style={{ background: 'none', border: 'none', color: '#1a5f3d', fontSize: '14px', fontWeight: '600', cursor: 'pointer', padding: '0 0 16px', display: 'block' }}>← History</button>
         )}
         <div style={{ background: 'white', borderRadius: '14px', padding: '24px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-          <p style={{ margin: '0 0 6px', fontSize: '12px', color: '#aaa', fontWeight: '700', letterSpacing: '0.5px' }}>ROUND COMPLETE · {round.date}</p>
+          <p style={{ margin: '0 0 6px', fontSize: '12px', color: '#aaa', fontWeight: '700', letterSpacing: '0.5px' }}>
+            ROUND COMPLETE ·{' '}
+            <input
+              key={`date-${currentRoundId}`}
+              type="date"
+              defaultValue={round.date}
+              onBlur={async (e) => {
+                const newDate = e.target.value;
+                if (!newDate || newDate === round.date) return;
+                const updated = { ...round, date: newDate };
+                setRound(updated);
+                setPastRounds(prev => prev.map(r => r.id === currentRoundId ? { ...r, date: newDate } : r));
+                await persist(updated, currentRoundId);
+              }}
+              style={{ fontSize: '12px', color: '#aaa', fontWeight: '700', letterSpacing: '0.5px', border: 'none', borderBottom: '1px dashed #ccc', background: 'transparent', padding: '0 2px', fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }}
+            />
+          </p>
           {round.course?.name && (
             <p style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: '600', color: '#1a1a1a' }}>{round.course.name}</p>
           )}
