@@ -7,6 +7,7 @@ import { signInWithRedirect, signInWithPopup, getRedirectResult, signOut, onAuth
 import { doc, getDoc, setDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { auth, googleProvider, db } from './src/firebase.js';
 import { calculateHandicapIndex } from './src/handicap.js';
+import { canUseShortGame } from './src/userGating.js';
 
 const EMPTY_SLOT = () => ({ name: '', distance: '', knockdownDistance: '' });
 
@@ -506,6 +507,17 @@ const GolfTrackerApp = () => {
               <span>{user.displayName?.split(' ')[0]}</span>
               {handicap.index !== null && (
                 <span style={{ fontSize: '11px', opacity: 0.7, lineHeight: 1 }}>HCP {handicap.index}</span>
+              )}
+              {canUseShortGame(user) && (
+                <a
+                  href="https://golf-advisor-app.web.app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  style={{ fontSize: '10px', opacity: 0.65, lineHeight: 1, color: 'white', textDecoration: 'underline' }}
+                >
+                  Golf Advisor
+                </a>
               )}
             </div>
             <LogOut size={16} strokeWidth={1.5} />
