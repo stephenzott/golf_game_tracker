@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 13, 2026 (editable round date in summary)
+**Last Updated**: June 15, 2026 (short game tracker + sand saves)
 
 ---
 
@@ -76,24 +76,34 @@
 ### Round Summary
 - Shown immediately after finishing a round and when selecting any past round from history
 - Displays total score vs par, handicap index (when index exists), handicap differential (when rating + slope are present), course handicap (when handicap index exists and rating + slope are present), scoring breakdown (Eagle/Birdie/Par/Bogey/Double/Triple+), and performance by par type (3/4/5)
-- Stat tiles arranged in three rows: Row 1 — FIR, GIR, Scrambling; Row 2 — Bounce Back %, Putts, Avg Putts; Row 3 — Hazards, Bunkers, 3-Putts
+- Stat tiles arranged in three rows: Row 1 — FIR, GIR, Scrambling; Row 2 — Sand Saves, Putts, Avg Putts; Row 3 — Hazards, Bunkers, 3-Putts
 - FIR, GIR, and Scrambling display as a percentage (e.g. `75%`) with the raw fraction shown to the right in lighter text (e.g. `7/9`)
-- Bounce Back %: percentage of holes where player made par or better immediately after a bogey or worse; shown as N/A when no opportunities exist
+- **Sand Saves**: holes where `bunker === true && score <= par`, displayed as a fraction (e.g. `2/4`); replaced Bounce Back % which was removed
 - Course comparison: when other rounds exist at the same course, each stat shows a historical average below it for context
 - Full hole-by-hole table with score circles, FIR, GIR, putts, and penalties
 - **Inline tees editor** in the summary header (below course name) — editable input field; saves to Firestore on blur; allows adding/editing tees for rounds already entered; shows "Add tees…" placeholder when blank
 - **Inline date editor** in the summary header — the date next to "ROUND COMPLETE" is an editable date input; saves to Firestore on blur; allows correcting a wrong date after a round is entered
 - **Post to GHIN button** — appears only when a round was just finished (`justFinished` state); not shown when viewing history; opens ghin.com in a new tab for manual score entry; no official GHIN API exists so data cannot be pushed automatically
 
+### Short Game Tracker
+- Gated to `szott19@gmail.com` only via `canUseShortGame` in `src/userGating.js` — invisible to beta users
+- **Active hole screen** (owner only): a CHIPS (< 50 YDS) counter (stepper, default 0) appears between Putts and Hazard/Bunker; stored as `hole.chip` (integer) per hole in `holeData`
+- **Active hole reorder**: Fairway Hit moved above Score/Putts (now: Par → Yardage → Fairway → Score → Putts → Chips → Hazard/Bunker)
+- **Round summary SHORT GAME card** (owner only, appears above By Par section):
+  - *CHIP (< 50 YDS)*: attempts = sum of `hole.chip` across all holes; up & down = holes where `chip > 0 && score <= par`; fully computed from hole data, no manual entry
+  - *50–100 YDS*: manual steppers for `over50Attempted` and `over50Made`; saved as `round.shortGame` in Firestore; auto-saves on each tap
+- Design rationale: chips tracked per-hole (in the moment), pitches tracked post-round (less frequent, easier to remember); bunker saves computed automatically from existing `bunker` + `score` data
+
 ### AI Coaching Summary
 - "✨ AI Coaching Summary" button appears at the bottom of the round summary screen, above the Edit/Start New Round buttons
-- Gated to `szott19@gmail.com` only via `ALLOWED_AI_USERS` in `src/geminiSummary.js` — invisible to other users
+- Gated to `szott19@gmail.com` only via `ALLOWED_AI_USERS` in `src/userGating.js` — invisible to other users
 - Calls Gemini 2.5 Flash (`gemini-2.5-flash`) directly from the browser using `VITE_GEMINI_API_KEY` stored in `.env.local` (gitignored)
 - Prompt sends full hole-by-hole data (score, putts, FIR, GIR, hazard, bunker) plus round-level stats; asks Gemini to respond as a golf coach in under 300 words
 - Response displays inline; "Regenerate" link overwrites the existing summary and re-saves
 - **AI summary is persisted**: stored as `round.aiSummary` in the Firestore round document; survives page reloads and app restarts; tied to the specific round so switching between rounds/courses shows the correct summary (or the generate button if none exists yet)
 - `aiError` state resets automatically when the active round changes (via `useEffect` on `round?.id`)
 - API key stored in `.env.local` as `VITE_GEMINI_API_KEY`; key is visible in the client bundle — quota cap on the key in Google Cloud Console is recommended
+- `src/geminiSummary.js` was renamed to `src/userGating.js` (now houses all feature gating: `canUseAI`, `canUseShortGame`, and the Gemini summary logic)
 - Before expanding to beta testers, check rate usage at: https://aistudio.google.com/rate-limit?timeRange=last-28-days&project=gen-lang-client-0026826837
 
 ### Edit Round
