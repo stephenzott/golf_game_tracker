@@ -5,6 +5,8 @@ const ALLOWED_AI_USERS = ['szott19@gmail.com', 'mfarotte@gmail.com'];
 
 export const canUseAI = (user) => ALLOWED_AI_USERS.includes(user?.email);
 
+export const canUseShortGame = (user) => user?.email === 'szott19@gmail.com';
+
 function buildPrompt(round) {
   const played = round.holeData.filter(h => h.score !== null);
   const totalScore = played.reduce((s, h) => s + h.score, 0);

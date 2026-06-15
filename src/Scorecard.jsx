@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, query, orderBy, setDoc, doc } from 'firebase/firestore';
-import { getRoundSummary, canUseAI } from './geminiSummary';
+import { getRoundSummary, canUseAI, canUseShortGame } from './userGating';
 import { calculateCourseHandicap } from './handicap';
 
 const wmoToCondition = (code) => {
@@ -85,6 +85,7 @@ const makeHole = (i) => ({
   fairway: null,
   gir: null,
   putts: null,
+  chip: 0,
   hazard: false,
   bunker: false,
   matchResult: null,
@@ -352,9 +353,7 @@ const Scorecard = ({ user, db, handicapIndex }) => {
     const threePutts = played.filter(h => (h.putts ?? 0) >= 3).length;
     const missedGIR = played.filter(h => h.gir === false);
     const scrambling = missedGIR.filter(h => h.score <= h.par).length;
-    const bounceBackOpps = played.filter((_, i) => i > 0 && played[i - 1].score > played[i - 1].par);
-    const bounceBackCount = bounceBackOpps.filter(h => h.score <= h.par).length;
-    const bounceBackPct = bounceBackOpps.length ? Math.round(bounceBackCount / bounceBackOpps.length * 100) : null;
+    const sandSaves = played.filter(h => h.bunker && h.score <= h.par).length;
     const handicapDiff = round.rating && round.slope
       ? ((totalScore - round.rating) * 113 / round.slope).toFixed(1)
       : null;
@@ -399,12 +398,11 @@ const Scorecard = ({ user, db, handicapIndex }) => {
         const drv = p.filter(h => h.par !== 3);
         const tp = p.reduce((s, h) => s + (h.putts ?? 0), 0);
         const missedG = p.filter(h => h.gir === false);
-        const bbOpps = p.filter((_, i) => i > 0 && p[i - 1].score > p[i - 1].par);
         return {
           fir: drv.length ? drv.filter(h => h.fairway === true).length / drv.length : null,
           gir: p.length ? p.filter(h => h.gir === true).length / p.length : null,
           scrambling: missedG.length ? missedG.filter(h => h.score <= h.par).length / missedG.length : null,
-          bounceBack: bbOpps.length ? bbOpps.filter(h => h.score <= h.par).length / bbOpps.length : null,
+          sandSaveRate: p.filter(h => h.bunker).length > 0 ? p.filter(h => h.bunker && h.score <= h.par).length / p.filter(h => h.bunker).length : null,
           totalPutts: tp,
           avgPutts: p.length ? tp / p.length : null,
           threePutts: p.filter(h => (h.putts ?? 0) >= 3).length,
@@ -435,7 +433,7 @@ const Scorecard = ({ user, db, handicapIndex }) => {
         fir: fmtPct('fir'),
         gir: fmtPct('gir'),
         scrambling: fmtPct('scrambling'),
-        bounceBack: fmtPct('bounceBack'),
+        sandSaves: fmtPct('sandSaveRate'),
         totalPutts: fmtNum('totalPutts', 0),
         avgPutts: fmtNum('avgPutts', 1),
         threePutts: fmtNum('threePutts', 1),
@@ -541,7 +539,7 @@ const Scorecard = ({ user, db, handicapIndex }) => {
             { label: 'FIR', value: drivingHoles.length ? `${Math.round(firCount / drivingHoles.length * 100)}%` : 'N/A', frac: drivingHoles.length ? `${firCount}/${drivingHoles.length}` : null, hist: histAvgs?.fir },
             { label: 'GIR', value: `${Math.round(girCount / played.length * 100)}%`, frac: `${girCount}/${played.length}`, hist: histAvgs?.gir },
             { label: 'Scrambling', value: missedGIR.length ? `${Math.round(scrambling / missedGIR.length * 100)}%` : 'N/A', frac: missedGIR.length ? `${scrambling}/${missedGIR.length}` : null, hist: histAvgs?.scrambling },
-            { label: 'Bounce Back', value: bounceBackPct !== null ? `${bounceBackPct}%` : 'N/A', hist: histAvgs?.bounceBack },
+            { label: 'Sand Saves', value: bunkers > 0 ? `${sandSaves}/${bunkers}` : 'N/A', hist: histAvgs?.sandSaves },
             { label: 'Putts', value: totalPutts, hist: histAvgs?.totalPutts },
             { label: 'Avg Putts', value: played.length ? (totalPutts / played.length).toFixed(1) : '--', hist: histAvgs?.avgPutts },
             { label: 'Hazards', value: hazards, hist: histAvgs?.hazards },
@@ -562,6 +560,68 @@ const Scorecard = ({ user, db, handicapIndex }) => {
             </div>
           ))}
         </div>
+
+        {canUseShortGame(user) && (() => {
+          const chipAttempts = played.reduce((s, h) => s + (h.chip ?? 0), 0);
+          const chipMade = played.filter(h => (h.chip ?? 0) > 0 && h.score <= h.par).length;
+          const sg = round.shortGame ?? {};
+          const over50Attempted = sg.over50Attempted ?? 0;
+          const over50Made = sg.over50Made ?? 0;
+          const updateSG = async (key, val) => {
+            const newSG = { ...(round.shortGame ?? {}), [key]: val };
+            const updated = { ...round, shortGame: newSG };
+            setRound(updated);
+            setPastRounds(prev => prev.map(r => r.id === currentRoundId ? { ...r, shortGame: newSG } : r));
+            await persist(updated, currentRoundId);
+          };
+          return (
+            <div style={{ background: 'white', borderRadius: '14px', padding: '16px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+              <p style={{ margin: '0 0 16px', fontSize: '12px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>SHORT GAME</p>
+
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>CHIP (&lt; 50 YDS)</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', textAlign: 'center' }}>
+                  <div>
+                    <p style={{ margin: '0 0 4px', fontSize: '10px', color: '#bbb', fontWeight: '700', letterSpacing: '0.5px' }}>ATTEMPTED</p>
+                    <p style={{ margin: 0, fontSize: '28px', fontWeight: '700', color: '#1a5f3d' }}>{chipAttempts}</p>
+                  </div>
+                  <div>
+                    <p style={{ margin: '0 0 4px', fontSize: '10px', color: '#bbb', fontWeight: '700', letterSpacing: '0.5px' }}>UP & DOWN</p>
+                    <p style={{ margin: 0, fontSize: '28px', fontWeight: '700', color: '#1a5f3d' }}>
+                      {chipMade}
+                      {chipAttempts > 0 && <span style={{ fontSize: '13px', color: '#bbb', fontWeight: '400', marginLeft: '4px' }}>{Math.round(chipMade / chipAttempts * 100)}%</span>}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>50–100 YDS</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  {[
+                    { sublabel: 'ATTEMPTED', key: 'over50Attempted', value: over50Attempted },
+                    { sublabel: 'UP & DOWN', key: 'over50Made', value: over50Made },
+                  ].map(({ sublabel, key, value }) => (
+                    <div key={key} style={{ textAlign: 'center' }}>
+                      <p style={{ margin: '0 0 8px', fontSize: '10px', color: '#bbb', fontWeight: '700', letterSpacing: '0.5px' }}>{sublabel}</p>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                        <button
+                          onClick={() => updateSG(key, Math.max(0, value - 1))}
+                          style={{ width: 36, height: 36, background: '#f5f5f5', border: 'none', borderRadius: '8px', fontSize: '20px', cursor: 'pointer', color: '#1a1a1a', fontWeight: '300' }}
+                        >−</button>
+                        <span style={{ fontSize: '28px', fontWeight: '700', color: '#1a5f3d', minWidth: '28px', textAlign: 'center' }}>{value}</span>
+                        <button
+                          onClick={() => updateSG(key, Math.min(20, value + 1))}
+                          style={{ width: 36, height: 36, background: '#f5f5f5', border: 'none', borderRadius: '8px', fontSize: '20px', cursor: 'pointer', color: '#1a1a1a', fontWeight: '300' }}
+                        >+</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {parTypes.length > 0 && (
           <div style={{ background: 'white', borderRadius: '14px', padding: '16px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -962,7 +1022,7 @@ const Scorecard = ({ user, db, handicapIndex }) => {
   const totalBalance = round.matchPlay ? calcBalance(round.holeData)             : 0;
   const onFront = currentHole < 9;
 
-  const TogglePair = ({ label, field, disabled }) => (
+  const TogglePair = ({ label, field, disabled, trueLabel = '✓ Hit', falseLabel = '✗ Miss' }) => (
     <div style={{ background: 'white', borderRadius: '12px', padding: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
       <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>{label}</p>
       {disabled ? (
@@ -980,7 +1040,7 @@ const Scorecard = ({ user, db, handicapIndex }) => {
                 border: 'none', borderRadius: '8px',
                 fontSize: '13px', fontWeight: '600', cursor: 'pointer',
               }}
-            >{val ? '✓ Hit' : '✗ Miss'}</button>
+            >{val ? trueLabel : falseLabel}</button>
           ))}
         </div>
       )}
@@ -1052,6 +1112,11 @@ const Scorecard = ({ user, db, handicapIndex }) => {
           />
         </div>
 
+        {/* Fairway */}
+        <div style={{ marginBottom: '10px' }}>
+          <TogglePair label="FAIRWAY HIT" field="fairway" disabled={hole.par === 3} />
+        </div>
+
         {/* Score */}
         <div style={{ background: 'white', borderRadius: '12px', padding: '14px 16px', marginBottom: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>SCORE</p>
@@ -1077,10 +1142,18 @@ const Scorecard = ({ user, db, handicapIndex }) => {
           />
         </div>
 
-        {/* Fairway */}
-        <div style={{ marginBottom: '10px' }}>
-          <TogglePair label="FAIRWAY HIT" field="fairway" disabled={hole.par === 3} />
-        </div>
+        {/* Chip < 50 yds */}
+        {canUseShortGame(user) && (
+          <div style={{ background: 'white', borderRadius: '12px', padding: '14px 16px', marginBottom: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>CHIPS (&lt; 50 YDS)</p>
+            <Stepper
+              value={hole.chip ?? 0}
+              onChange={v => updateHole('chip', v)}
+              min={0}
+              max={8}
+            />
+          </div>
+        )}
 
         {/* Hazard + Bunker */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
