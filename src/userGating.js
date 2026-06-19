@@ -1,5 +1,4 @@
-const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
 
 const ALLOWED_AI_USERS = ['szott19@gmail.com', 'mfarotte@gmail.com', 'nquinn444@gmail.com'];
 
@@ -60,24 +59,31 @@ Keep the total response under 300 words. Use plain paragraphs, not bullet points
 }
 
 export async function getRoundSummary(round) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error('Gemini API key not found. Check your .env.local file.');
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('Anthropic API key not found. Check your .env.local file.');
 
-  const response = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+  const response = await fetch(CLAUDE_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: buildPrompt(round) }] }],
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: buildPrompt(round) }],
     }),
   });
 
   if (!response.ok) {
     const err = await response.json();
-    throw new Error(`Gemini API error: ${err?.error?.message || response.statusText}`);
+    throw new Error(`Claude API error: ${err?.error?.message || response.statusText}`);
   }
 
   const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error('Gemini returned an empty response.');
+  const text = data?.content?.[0]?.text;
+  if (!text) throw new Error('Claude returned an empty response.');
   return text;
 }
