@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 15, 2026 (short game tracker + sand saves)
+**Last Updated**: June 19, 2026 (GIR auto-calc fix + AI summary backfill)
 
 ---
 
@@ -58,6 +58,7 @@
 - **Hole preload**: when both course name and tees match a past round (case-insensitive trim), that round's `par` and `yards` per hole are preloaded into the new round; `rating` and `slope` also carried over if not manually entered; green hint "Hole data from [date] will load" appears when match found; 9/18 mismatch handled gracefully
 - Delete button on each round in history view (removes from Firestore + UI instantly)
 - GIR is auto-derived from score and putts using `(score - putts) <= (par - 2)`; no manual toggle — computed whenever both values are set
+- **GIR backfill**: bug fixed where `goToHole` and `finishRound` applied score/putts defaults but didn't recompute GIR, leaving holes with `gir: null`; `scripts/backfill-gir.js` (firebase-admin, requires `scripts/serviceAccount.json`) retroactively fixed all affected rounds across all users
 
 ### Handicap
 - **Handicap Index** (WHS 2020) displayed under the user's first name in the top-right header — hidden until 3+ rated rounds exist
@@ -97,14 +98,15 @@
 ### AI Coaching Summary
 - "✨ AI Coaching Summary" button appears at the bottom of the round summary screen, above the Edit/Start New Round buttons
 - Gated to `szott19@gmail.com` only via `ALLOWED_AI_USERS` in `src/userGating.js` — invisible to other users
-- Calls Gemini 2.5 Flash (`gemini-2.5-flash`) directly from the browser using `VITE_GEMINI_API_KEY` stored in `.env.local` (gitignored)
-- Prompt sends full hole-by-hole data (score, putts, FIR, GIR, hazard, bunker) plus round-level stats; asks Gemini to respond as a golf coach in under 300 words
+- Calls Claude Sonnet 4.6 (`claude-sonnet-4-6`) directly from the browser using `VITE_ANTHROPIC_API_KEY` stored in `.env.local` (gitignored)
+- Prompt sends full hole-by-hole data (score, putts, FIR, GIR, hazard, bunker) plus round-level stats; asks Claude to respond as a golf coach in under 300 words
 - Response displays inline; "Regenerate" link overwrites the existing summary and re-saves
 - **AI summary is persisted**: stored as `round.aiSummary` in the Firestore round document; survives page reloads and app restarts; tied to the specific round so switching between rounds/courses shows the correct summary (or the generate button if none exists yet)
 - `aiError` state resets automatically when the active round changes (via `useEffect` on `round?.id`)
-- API key stored in `.env.local` as `VITE_GEMINI_API_KEY`; key is visible in the client bundle — quota cap on the key in Google Cloud Console is recommended
-- `src/geminiSummary.js` was renamed to `src/userGating.js` (now houses all feature gating: `canUseAI`, `canUseShortGame`, and the Gemini summary logic)
-- Before expanding to beta testers, check rate usage at: https://aistudio.google.com/rate-limit?timeRange=last-28-days&project=gen-lang-client-0026826837
+- API key stored in `.env.local` as `VITE_ANTHROPIC_API_KEY`; key is visible in the client bundle — usage limits recommended
+- `src/userGating.js` houses all feature gating: `canUseAI`, `canUseShortGame`, and the Claude summary logic (`getRoundSummary`)
+- AI summary allowed users: `szott19@gmail.com`, `mfarotte@gmail.com`, `nquinn444@gmail.com`
+- To regenerate a wrong summary, open the round and click "Regenerate" — Claude re-reads the actual hole data each time
 
 ### Edit Round
 - "Edit Round" button on the round summary (outlined green, above "Start New Round")
