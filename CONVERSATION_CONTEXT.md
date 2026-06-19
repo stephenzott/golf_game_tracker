@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 19, 2026 (GIR auto-calc fix + AI summary backfill)
+**Last Updated**: June 19, 2026 (GIR auto-calc fix + AI summary backfill + upgraded to Opus 4.8)
 
 ---
 
@@ -98,7 +98,7 @@
 ### AI Coaching Summary
 - "✨ AI Coaching Summary" button appears at the bottom of the round summary screen, above the Edit/Start New Round buttons
 - Gated to `szott19@gmail.com` only via `ALLOWED_AI_USERS` in `src/userGating.js` — invisible to other users
-- Calls Claude Sonnet 4.6 (`claude-sonnet-4-6`) directly from the browser using `VITE_ANTHROPIC_API_KEY` stored in `.env.local` (gitignored)
+- Calls Claude Opus 4.8 (`claude-opus-4-8`) directly from the browser using `VITE_ANTHROPIC_API_KEY` stored in `.env.local` (gitignored)
 - Prompt sends full hole-by-hole data (score, putts, FIR, GIR, hazard, bunker) plus round-level stats; asks Claude to respond as a golf coach in under 300 words
 - Response displays inline; "Regenerate" link overwrites the existing summary and re-saves
 - **AI summary is persisted**: stored as `round.aiSummary` in the Firestore round document; survives page reloads and app restarts; tied to the specific round so switching between rounds/courses shows the correct summary (or the generate button if none exists yet)
