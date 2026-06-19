@@ -34,9 +34,13 @@ async function backfill() {
 
       let changed = false;
       const holeData = round.holeData.map(h => {
-        if (h.gir === null && h.score !== null && h.putts !== null) {
-          changed = true;
-          return { ...h, gir: calcGir(h.score, h.putts, h.par) };
+        if (h.score !== null) {
+          const putts = h.putts ?? 2;
+          const gir = calcGir(h.score, putts, h.par);
+          if (gir !== h.gir || h.putts === null) {
+            changed = true;
+            return { ...h, putts, gir };
+          }
         }
         return h;
       });
