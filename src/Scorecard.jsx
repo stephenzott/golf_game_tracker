@@ -275,10 +275,13 @@ const Scorecard = ({ user, db, handicapIndex }) => {
     if (isEditingRound) { setCurrentHole(idx); return; }
     const data = [...round.holeData];
     const h = data[currentHole];
+    const score = h.score ?? h.par;
+    const putts = h.putts ?? 2;
     data[currentHole] = {
       ...h,
-      score: h.score ?? h.par,
-      putts: h.putts ?? 2,
+      score,
+      putts,
+      gir: (score - putts) <= (h.par - 2),
     };
     const updated = { ...round, holeData: data };
     setRound(updated);
@@ -289,7 +292,9 @@ const Scorecard = ({ user, db, handicapIndex }) => {
   const finishRound = async () => {
     const data = [...round.holeData];
     const h = data[currentHole];
-    data[currentHole] = { ...h, score: h.score ?? h.par, putts: h.putts ?? 2 };
+    const score = h.score ?? h.par;
+    const putts = h.putts ?? 2;
+    data[currentHole] = { ...h, score, putts, gir: (score - putts) <= (h.par - 2) };
     const finished = { ...round, holeData: data, completed: true };
     setRound(finished);
     setJustFinished(true);
