@@ -101,6 +101,7 @@ const GolfTrackerApp = () => {
   const [elevation, setElevation] = useState(0);
   // activeTab: controls which panel is shown — 'log' or 'select'
   const [activeTab, setActiveTab] = useState('log');
+  const [trackMounted, setTrackMounted] = useState(false);
   // recommendation: null when empty, or an object with club suggestion and adjusted distance
   const [recommendation, setRecommendation] = useState(null);
   const [showKnockdownSuggestion, setShowKnockdownSuggestion] = useState(false);
@@ -228,6 +229,10 @@ const GolfTrackerApp = () => {
     }));
     setDoc(docRef, { distances, bag });
   }, [distances, bagSlots, user]);
+
+  useEffect(() => {
+    if (activeTab === 'track') setTrackMounted(true);
+  }, [activeTab]);
 
   // Use popup on localhost (redirect misfires with a non-localhost authDomain);
   // use redirect everywhere else so mobile browsers don't block it.
@@ -1262,16 +1267,19 @@ const GolfTrackerApp = () => {
         {/* Track Shot Tab — renders outside the padded content div below */}
       </div>
 
-      {activeTab === 'track' && (
-        <ShotTracker
-          clubs={clubs}
-          onLogDistance={(club, yards, knockdown) =>
-            setDistances(prev => ({
-              ...prev,
-              [club]: [...(prev[club] || []), { value: yards, type: 'course', ...(knockdown && { knockdown: true }) }],
-            }))
-          }
-        />
+      {trackMounted && (
+        <div style={{ display: activeTab === 'track' ? 'block' : 'none' }}>
+          <ShotTracker
+            clubs={clubs}
+            visible={activeTab === 'track'}
+            onLogDistance={(club, yards, knockdown) =>
+              setDistances(prev => ({
+                ...prev,
+                [club]: [...(prev[club] || []), { value: yards, type: 'course', ...(knockdown && { knockdown: true }) }],
+              }))
+            }
+          />
+        </div>
       )}
 
       {activeTab === 'score' && (
