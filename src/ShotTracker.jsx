@@ -20,7 +20,7 @@ const makeMarkerEl = (fill, border) => {
   return el;
 };
 
-const ShotTracker = ({ clubs, onLogDistance }) => {
+const ShotTracker = ({ clubs, onLogDistance, visible }) => {
   const mapContainer = useRef(null);
   const map = useRef(null);
   const shotMarker = useRef(null);
@@ -32,6 +32,10 @@ const ShotTracker = ({ clubs, onLogDistance }) => {
   const [locating, setLocating] = useState(false);
   const [selectedClub, setSelectedClub] = useState('');
   const [isKnockdown, setIsKnockdown] = useState(false);
+
+  useEffect(() => {
+    if (visible) map.current?.resize();
+  }, [visible]);
 
   useEffect(() => {
     if (map.current) return;

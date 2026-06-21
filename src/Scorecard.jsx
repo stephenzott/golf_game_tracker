@@ -112,6 +112,7 @@ const Scorecard = ({ user, db, handicapIndex }) => {
   const [preEditRound, setPreEditRound] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
+  const [statsDrawerHole, setStatsDrawerHole] = useState(null);
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
@@ -250,8 +251,8 @@ const Scorecard = ({ user, db, handicapIndex }) => {
       const updated = { ...data[currentHole], [field]: value };
       if (field === 'score' || field === 'putts') {
         const score = field === 'score' ? value : updated.score;
-        const putts = field === 'putts' ? value : updated.putts;
-        if (score !== null && putts !== null) {
+        const putts = field === 'putts' ? value : (updated.putts ?? 2);
+        if (score !== null) {
           updated.gir = (score - putts) <= (updated.par - 2);
         }
       }
@@ -308,6 +309,25 @@ const Scorecard = ({ user, db, handicapIndex }) => {
     setRound(null);
     setRoundDocId(null);
     setCurrentHole(0);
+  };
+
+  const updateHoleStatsField = (holeIdx, field, value) => {
+    setRound(prev => {
+      const data = [...prev.holeData];
+      const updated = { ...data[holeIdx], [field]: value };
+      if (field === 'putts' && updated.score !== null) {
+        updated.gir = (updated.score - value) <= (updated.par - 2);
+      }
+      data[holeIdx] = updated;
+      return { ...prev, holeData: data };
+    });
+  };
+
+  const saveHoleStats = async () => {
+    const id = round.id ?? roundDocId;
+    await persist(round, id);
+    setPastRounds(prev => prev.map(r => r.id === id ? { id, ...round } : r));
+    setStatsDrawerHole(null);
   };
 
   const saveEdits = async () => {
@@ -653,7 +673,10 @@ const Scorecard = ({ user, db, handicapIndex }) => {
         )}
 
         <div style={{ background: 'white', borderRadius: '14px', padding: '16px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', overflowX: 'auto' }}>
-          <p style={{ margin: '0 0 12px', fontSize: '12px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>HOLE BY HOLE</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <p style={{ margin: 0, fontSize: '12px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>HOLE BY HOLE</p>
+            <p style={{ margin: 0, fontSize: '11px', color: '#bbb' }}>Tap a hole to add stats</p>
+          </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '360px' }}>
             <thead>
               <tr>
@@ -664,7 +687,7 @@ const Scorecard = ({ user, db, handicapIndex }) => {
             </thead>
             <tbody>
               {round.holeData.map(h => (
-                <tr key={h.hole} style={{ borderTop: '1px solid #f5f5f5' }}>
+                <tr key={h.hole} onClick={() => setStatsDrawerHole(h.hole - 1)} style={{ borderTop: '1px solid #f5f5f5', cursor: 'pointer' }}>
                   <td style={{ padding: '6px', textAlign: 'center', fontWeight: '700', color: '#666', fontSize: '12px' }}>{h.hole}</td>
                   <td style={{ padding: '6px', textAlign: 'center', color: '#aaa' }}>{h.par}</td>
                   <td style={{ padding: '6px', textAlign: 'center', color: '#888', fontSize: '11px' }}>{h.yards ?? '—'}</td>
@@ -770,6 +793,76 @@ const Scorecard = ({ user, db, handicapIndex }) => {
         >
           Start New Round
         </button>
+
+        {/* Post-round hole stats drawer */}
+        {statsDrawerHole !== null && (() => {
+          const dh = round.holeData[statsDrawerHole];
+          return (
+            <>
+              <div onClick={() => setStatsDrawerHole(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 999 }} />
+              <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'white', borderRadius: '20px 20px 0 0', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', padding: '16px 16px 32px', zIndex: 1000, maxHeight: '80vh', overflowY: 'auto' }}>
+                <div style={{ width: '40px', height: '4px', background: '#e0e0e0', borderRadius: '2px', margin: '0 auto 16px' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <button onClick={() => setStatsDrawerHole(i => Math.max(0, i - 1))} disabled={statsDrawerHole === 0} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: statsDrawerHole === 0 ? 'default' : 'pointer', color: statsDrawerHole === 0 ? '#ddd' : '#1a5f3d', padding: '0' }}>‹</button>
+                    <p style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>Hole {dh.hole} — Par {dh.par}</p>
+                    <button onClick={() => setStatsDrawerHole(i => Math.min(round.holes - 1, i + 1))} disabled={statsDrawerHole === round.holes - 1} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: statsDrawerHole === round.holes - 1 ? 'default' : 'pointer', color: statsDrawerHole === round.holes - 1 ? '#ddd' : '#1a5f3d', padding: '0' }}>›</button>
+                  </div>
+                  <button onClick={() => setStatsDrawerHole(null)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#aaa', lineHeight: 1 }}>×</button>
+                </div>
+
+                <div style={{ background: '#f8f8f8', borderRadius: '10px', padding: '10px 14px', marginBottom: '14px' }}>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#888' }}>Score: <strong style={{ color: '#1a1a1a' }}>{dh.score ?? '—'}</strong></p>
+                </div>
+
+                <div style={{ marginBottom: '14px' }}>
+                  <p style={{ margin: '0 0 8px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>PUTTS</p>
+                  <Stepper value={dh.putts ?? 2} onChange={v => updateHoleStatsField(statsDrawerHole, 'putts', v)} min={0} max={8} />
+                </div>
+
+                {canUseShortGame(user) && (
+                  <div style={{ marginBottom: '14px' }}>
+                    <p style={{ margin: '0 0 8px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>CHIPS (&lt; 50 YDS)</p>
+                    <Stepper value={dh.chip ?? 0} onChange={v => updateHoleStatsField(statsDrawerHole, 'chip', v)} min={0} max={8} />
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
+                  {[
+                    { key: 'hazard', label: 'HAZARD / OB', icon: '⚠️' },
+                    { key: 'bunker', label: 'BUNKER', icon: '🟤' },
+                  ].map(({ key, label, icon }) => (
+                    <button
+                      key={key}
+                      onClick={() => updateHoleStatsField(statsDrawerHole, key, !dh[key])}
+                      style={{ padding: '14px', textAlign: 'left', cursor: 'pointer', background: dh[key] ? '#fffbeb' : 'white', border: `2px solid ${dh[key] ? '#f59e0b' : '#f0f0f0'}`, borderRadius: '12px' }}
+                    >
+                      <p style={{ margin: '0 0 4px', fontSize: '20px' }}>{icon}</p>
+                      <p style={{ margin: '0 0 2px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>{label}</p>
+                      <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: dh[key] ? '#f59e0b' : '#aaa' }}>{dh[key] ? 'Yes' : 'No'}</p>
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <p style={{ margin: '0 0 8px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>HOLE DISTANCE (yds)</p>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={dh.yards ?? ''}
+                    onChange={e => updateHoleStatsField(statsDrawerHole, 'yards', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                    placeholder="e.g. 385"
+                    style={{ width: '100%', padding: '14px 12px', fontSize: '24px', fontWeight: '700', border: '1px solid #e8e8e8', borderRadius: '8px', boxSizing: 'border-box', fontFamily: 'inherit', color: '#1a5f3d', textAlign: 'center' }}
+                  />
+                </div>
+
+                <button onClick={saveHoleStats} style={{ width: '100%', padding: '16px', background: '#1a5f3d', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}>
+                  Save
+                </button>
+              </div>
+            </>
+          );
+        })()}
       </div>
     );
   }
@@ -1100,22 +1193,24 @@ const Scorecard = ({ user, db, handicapIndex }) => {
           </div>
         </div>
 
-        {/* Hole yardage */}
-        <div style={{ background: 'white', borderRadius: '12px', padding: '14px 16px', marginBottom: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>HOLE DISTANCE (yds)</p>
-          <input
-            type="number"
-            inputMode="numeric"
-            value={hole.yards ?? ''}
-            onChange={e => updateHole('yards', e.target.value === '' ? null : parseInt(e.target.value, 10))}
-            placeholder="e.g. 385"
-            style={{
-              width: '100%', padding: '14px 12px', fontSize: '24px', fontWeight: '700',
-              border: '1px solid #e8e8e8', borderRadius: '8px', boxSizing: 'border-box',
-              fontFamily: 'inherit', color: '#1a5f3d', textAlign: 'center',
-            }}
-          />
-        </div>
+        {/* Hole yardage — edit mode only */}
+        {isEditingRound && (
+          <div style={{ background: 'white', borderRadius: '12px', padding: '14px 16px', marginBottom: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>HOLE DISTANCE (yds)</p>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={hole.yards ?? ''}
+              onChange={e => updateHole('yards', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+              placeholder="e.g. 385"
+              style={{
+                width: '100%', padding: '14px 12px', fontSize: '24px', fontWeight: '700',
+                border: '1px solid #e8e8e8', borderRadius: '8px', boxSizing: 'border-box',
+                fontFamily: 'inherit', color: '#1a5f3d', textAlign: 'center',
+              }}
+            />
+          </div>
+        )}
 
         {/* Fairway */}
         <div style={{ marginBottom: '10px' }}>
@@ -1136,19 +1231,21 @@ const Scorecard = ({ user, db, handicapIndex }) => {
           </p>
         </div>
 
-        {/* Putts */}
-        <div style={{ background: 'white', borderRadius: '12px', padding: '14px 16px', marginBottom: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>PUTTS</p>
-          <Stepper
-            value={hole.putts ?? 2}
-            onChange={v => updateHole('putts', v)}
-            min={0}
-            max={8}
-          />
-        </div>
+        {/* Putts — edit mode only; enter post-round via hole stats drawer */}
+        {isEditingRound && (
+          <div style={{ background: 'white', borderRadius: '12px', padding: '14px 16px', marginBottom: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>PUTTS</p>
+            <Stepper
+              value={hole.putts ?? 2}
+              onChange={v => updateHole('putts', v)}
+              min={0}
+              max={8}
+            />
+          </div>
+        )}
 
-        {/* Chip < 50 yds */}
-        {canUseShortGame(user) && (
+        {/* Chip < 50 yds — edit mode only */}
+        {isEditingRound && canUseShortGame(user) && (
           <div style={{ background: 'white', borderRadius: '12px', padding: '14px 16px', marginBottom: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
             <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>CHIPS (&lt; 50 YDS)</p>
             <Stepper
@@ -1160,30 +1257,32 @@ const Scorecard = ({ user, db, handicapIndex }) => {
           </div>
         )}
 
-        {/* Hazard + Bunker */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-          {[
-            { key: 'hazard', label: 'HAZARD / OB', icon: '⚠️' },
-            { key: 'bunker', label: 'BUNKER', icon: '🟤' },
-          ].map(({ key, label, icon }) => (
-            <button
-              key={key}
-              onClick={() => updateHole(key, !hole[key])}
-              style={{
-                padding: '14px', textAlign: 'left', cursor: 'pointer',
-                background: hole[key] ? '#fffbeb' : 'white',
-                border: `2px solid ${hole[key] ? '#f59e0b' : '#f0f0f0'}`,
-                borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-              }}
-            >
-              <p style={{ margin: '0 0 4px', fontSize: '20px' }}>{icon}</p>
-              <p style={{ margin: '0 0 2px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>{label}</p>
-              <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: hole[key] ? '#f59e0b' : '#ccc' }}>
-                {hole[key] ? 'Yes' : 'No'}
-              </p>
-            </button>
-          ))}
-        </div>
+        {/* Hazard + Bunker — edit mode only */}
+        {isEditingRound && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+            {[
+              { key: 'hazard', label: 'HAZARD / OB', icon: '⚠️' },
+              { key: 'bunker', label: 'BUNKER', icon: '🟤' },
+            ].map(({ key, label, icon }) => (
+              <button
+                key={key}
+                onClick={() => updateHole(key, !hole[key])}
+                style={{
+                  padding: '14px', textAlign: 'left', cursor: 'pointer',
+                  background: hole[key] ? '#fffbeb' : 'white',
+                  border: `2px solid ${hole[key] ? '#f59e0b' : '#f0f0f0'}`,
+                  borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                }}
+              >
+                <p style={{ margin: '0 0 4px', fontSize: '20px' }}>{icon}</p>
+                <p style={{ margin: '0 0 2px', fontSize: '11px', fontWeight: '700', color: '#aaa', letterSpacing: '0.5px' }}>{label}</p>
+                <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: hole[key] ? '#f59e0b' : '#ccc' }}>
+                  {hole[key] ? 'Yes' : 'No'}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Match play result */}
         {round.matchPlay && (
