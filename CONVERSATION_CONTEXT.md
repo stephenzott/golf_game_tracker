@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 19, 2026 (GIR auto-calc fix + AI summary backfill + upgraded to Opus 4.8)
+**Last Updated**: June 23, 2026 (simplified live scoring, persistent Track tab, GIR live fix, post-round stats drawer)
 
 ---
 
@@ -59,6 +59,9 @@
 - Delete button on each round in history view (removes from Firestore + UI instantly)
 - GIR is auto-derived from score and putts using `(score - putts) <= (par - 2)`; no manual toggle — computed whenever both values are set
 - **GIR backfill**: bug fixed where `goToHole` and `finishRound` applied score/putts defaults but didn't recompute GIR, leaving holes with `gir: null`; `scripts/backfill-gir.js` (firebase-admin, requires `scripts/serviceAccount.json`) retroactively fixed all affected rounds across all users
+- **GIR live fix**: `updateHole` now uses `putts ?? 2` when computing GIR live (matches `goToHole`/`finishRound` behavior); previously GIR stayed null if the putts stepper hadn't been touched even after a score was entered
+- **Simplified live scoring form**: during an active round, only Par, Fairway Hit, Score, and Nassau are shown; Putts, Chips, Hazard/OB, Bunker, and Hole Distance are hidden to reduce in-round tapping
+- **Post-round stats drawer**: after finishing a round, tapping any row in the Hole By Hole table opens a bottom-sheet drawer; fields: Putts, Chips (owner only), Hazard/OB, Bunker, Hole Distance; ‹ › arrows navigate between holes; Save persists to Firestore and recomputes GIR; the Putts/Chips/Hazard/Bunker/Hole Distance fields remain available in Edit Round mode as well
 
 ### Handicap
 - **Handicap Index** (WHS 2020) displayed under the user's first name in the top-right header — hidden until 3+ rated rounds exist
@@ -138,6 +141,7 @@
 - Log shot locations with GPS
 - Club selector appears immediately after marking shot (can select while walking to ball)
 - Log It button only appears once ball position is recorded and distance calculated
+- **Persistent Track tab**: `ShotTracker` stays mounted after first visit using a `trackMounted` flag + CSS `display:none` when off-tab; shot markers, ball markers, and distance line survive switching to other tabs; map calls `resize()` when the tab becomes visible again
 
 ### PWA
 - Installable from browser to home screen
