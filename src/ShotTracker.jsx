@@ -161,9 +161,15 @@ const ShotTracker = ({ clubs, onLogDistance, visible }) => {
         {yards ? (
           <div style={{ textAlign: 'center', marginBottom: '10px' }}>
             <p style={{ margin: '0 0 2px', fontSize: '12px', color: '#888', fontWeight: '600', letterSpacing: '0.5px' }}>SHOT DISTANCE</p>
-            <p style={{ margin: '0 0 10px', fontSize: '52px', fontWeight: '700', color: '#1a5f3d', letterSpacing: '-2px', lineHeight: 1 }}>
-              {yards} <span style={{ fontSize: '18px', color: '#888', fontWeight: '400' }}>yds</span>
-            </p>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '6px', margin: '0 0 10px' }}>
+              <input
+                type="number"
+                value={yards ?? ''}
+                onChange={e => setYards(e.target.value === '' ? null : Number(e.target.value))}
+                style={{ width: '120px', fontSize: '52px', fontWeight: '700', color: '#1a5f3d', letterSpacing: '-2px', lineHeight: 1, border: 'none', borderBottom: '2px solid #1a5f3d', background: 'transparent', textAlign: 'center', outline: 'none', fontFamily: 'inherit' }}
+              />
+              <span style={{ fontSize: '18px', color: '#888', fontWeight: '400' }}>yds</span>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               {[
                 { id: false, label: 'Full Swing' },
