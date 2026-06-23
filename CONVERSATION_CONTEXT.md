@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 23, 2026 (simplified live scoring, persistent Track tab, GIR live fix, post-round stats drawer)
+**Last Updated**: June 23, 2026 (simplified live scoring, persistent Track tab, GIR live fix, post-round stats drawer, editable GPS distance)
 
 ---
 
@@ -142,6 +142,7 @@
 - Club selector appears immediately after marking shot (can select while walking to ball)
 - Log It button only appears once ball position is recorded and distance calculated
 - **Persistent Track tab**: `ShotTracker` stays mounted after first visit using a `trackMounted` flag + CSS `display:none` when off-tab; shot markers, ball markers, and distance line survive switching to other tabs; map calls `resize()` when the tab becomes visible again
+- **Editable GPS distance**: after "At My Ball" is tapped and the GPS yardage is calculated, the distance displays as an editable number input (styled to match the large yardage display, underlined to hint editability) so the user can adjust it before hitting "Log It"
 
 ### PWA
 - Installable from browser to home screen
