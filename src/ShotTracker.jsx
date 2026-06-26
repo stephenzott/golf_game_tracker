@@ -38,6 +38,16 @@ const ShotTracker = ({ clubs, onLogDistance, visible }) => {
   }, [visible]);
 
   useEffect(() => {
+    let wakeLock = null;
+    if ('wakeLock' in navigator) {
+      navigator.wakeLock.request('screen')
+        .then(lock => { wakeLock = lock; })
+        .catch(() => {});
+    }
+    return () => { wakeLock?.release(); };
+  }, []);
+
+  useEffect(() => {
     if (map.current) return;
 
     map.current = new mapboxgl.Map({
