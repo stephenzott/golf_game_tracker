@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 23, 2026 (simplified live scoring, persistent Track tab, GIR live fix, post-round stats drawer, editable GPS distance)
+**Last Updated**: June 26, 2026 (Firestore offline persistence, GPS screen wake lock)
 
 ---
 
@@ -150,6 +150,8 @@
 - PWA manifest configured
 - Service worker (`public/sw.js`) handles silent auto-updates: new SW calls `skipWaiting()` on install, claims clients on activate, and the app reloads silently when a new version is deployed — no manual delete-and-reinstall needed
 - Navigation requests use network-first (always fresh HTML); hashed assets use cache-first; Firebase/Google API requests are bypassed entirely
+- **Firestore offline persistence**: `initializeFirestore` with `persistentLocalCache()` in `src/firebase.js`; all reads cached in IndexedDB, writes queue when offline and sync automatically on reconnect — important for on-course use where signal drops
+- **Screen Wake Lock**: `ShotTracker.jsx` requests a Wake Lock on mount so the screen stays on and GPS updates continue while the Track tab is open; releases on unmount; iOS 16.4+ Safari supported, silent no-op on older browsers
 
 ---
 
