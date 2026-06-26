@@ -24,6 +24,11 @@ const sortSlots = (slots) =>
     })
     .map(({ _i, ...s }) => s);
 
+// Treating the baseline as 5 virtual shots — real data overtakes it after ~10 logged shots
+  const BASE_WEIGHT = 5;
+  const OUTLIER_MIN_SHOTS = 15;
+  const OUTLIER_THRESHOLD = 0.6;
+
 const ClockFace = ({ hour, onSelect, windMph }) => {
   const S = 184, C = 92, R = 68;
   const pos = (h) => {
@@ -257,11 +262,6 @@ const GolfTrackerApp = () => {
       .filter(s => s.name && parseFloat(s.knockdownDistance) > 0)
       .map(s => [s.name, parseFloat(s.knockdownDistance)])
   );
-
-  // Treating the baseline as 5 virtual shots — real data overtakes it after ~10 logged shots
-  const BASE_WEIGHT = 5;
-  const OUTLIER_MIN_SHOTS = 15;
-  const OUTLIER_THRESHOLD = 0.6;
 
   // Drops shots below 60% of the raw mean once 15+ shots are logged.
   // Only trims low outliers (mishits) — unusually long shots are kept.
