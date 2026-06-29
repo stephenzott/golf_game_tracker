@@ -139,46 +139,51 @@ const GolfTrackerApp = () => {
       unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         saveEnabled.current = false;
         setUser(firebaseUser);
-        if (firebaseUser) {
-          const docRef = doc(db, 'users', firebaseUser.uid);
-          const snap = await getDoc(docRef);
-          if (snap.exists()) {
-            // Normalize legacy plain-number entries to { value, type } objects
-            const raw = snap.data().distances || {};
-            const normalized = Object.fromEntries(
-              Object.entries(raw).map(([club, shots]) => [
-                club,
-                shots.map(s => (typeof s === 'number' ? { value: s, type: 'course' } : s)),
-              ])
-            );
-            setDistances(normalized);
+        try {
+          if (firebaseUser) {
+            const docRef = doc(db, 'users', firebaseUser.uid);
+            const snap = await getDoc(docRef);
+            if (snap.exists()) {
+              // Normalize legacy plain-number entries to { value, type } objects
+              const raw = snap.data().distances || {};
+              const normalized = Object.fromEntries(
+                Object.entries(raw).map(([club, shots]) => [
+                  club,
+                  shots.map(s => (typeof s === 'number' ? { value: s, type: 'course' } : s)),
+                ])
+              );
+              setDistances(normalized);
 
-            if (snap.data().bag) {
-              const loaded = snap.data().bag.map(s => ({
-                name: s.name || '',
-                distance: s.distance != null ? String(s.distance) : '',
-                knockdownDistance: s.knockdownDistance != null ? String(s.knockdownDistance) : '',
-              }));
-              while (loaded.length < 13) loaded.push(EMPTY_SLOT());
-              setBagSlots(sortSlots(loaded));
-            } else if (snap.data().baseDistances) {
-              // Migrate old baseDistances format into bagSlots
-              const old = snap.data().baseDistances;
-              const slots = Object.entries(old).map(([name, distance]) => ({
-                name,
-                distance: String(distance),
-              }));
-              while (slots.length < 13) slots.push(EMPTY_SLOT());
-              setBagSlots(sortSlots(slots));
+              if (snap.data().bag) {
+                const loaded = snap.data().bag.map(s => ({
+                  name: s.name || '',
+                  distance: s.distance != null ? String(s.distance) : '',
+                  knockdownDistance: s.knockdownDistance != null ? String(s.knockdownDistance) : '',
+                }));
+                while (loaded.length < 13) loaded.push(EMPTY_SLOT());
+                setBagSlots(sortSlots(loaded));
+              } else if (snap.data().baseDistances) {
+                // Migrate old baseDistances format into bagSlots
+                const old = snap.data().baseDistances;
+                const slots = Object.entries(old).map(([name, distance]) => ({
+                  name,
+                  distance: String(distance),
+                }));
+                while (slots.length < 13) slots.push(EMPTY_SLOT());
+                setBagSlots(sortSlots(slots));
+              }
+            } else {
+              setDistances({});
             }
           } else {
             setDistances({});
           }
-        } else {
+        } catch {
           setDistances({});
+        } finally {
+          setLoading(false);
+          saveEnabled.current = true;
         }
-        setLoading(false);
-        saveEnabled.current = true;
       });
     };
 
