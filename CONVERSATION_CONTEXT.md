@@ -1,6 +1,6 @@
 # GolfPro Tracker - Conversation Context & Development Notes
 
-**Last Updated**: June 26, 2026 (Firestore offline persistence, GPS screen wake lock + continuous tracking behavior)
+**Last Updated**: July 7, 2026 (Firestore security rules added to source control; hotfix for production outage)
 
 ---
 
@@ -18,6 +18,10 @@
 **Hosting**: Free tier only — user pays for Claude, nothing else.
 
 **Deployment**: Always `npm run build && firebase deploy` as a single chained command from `main`. Never run `firebase deploy` alone — it would ship stale `dist` contents. Running the build separately earlier in the session (e.g. to test for errors) is not sufficient; the chain must be run at deploy time. This has caused bugs in the past (e.g. a model name change not making it to production because build was skipped). Feature branches are tested locally only (`npm run dev`).
+
+**Firestore Rules**: Stored in `firestore.rules` at the project root and wired into `firebase.json`. Deploy rules separately with `firebase deploy --only firestore:rules`. Rules were previously managed only in the Firebase console and expired/reset, causing a full production outage (July 7, 2026) — all Firestore reads and writes failed with "Missing or insufficient permissions." Rules allow authenticated users to read/write only their own data under `users/{userId}/**`.
+
+**firebase.js guards**: `src/firebase.js` uses `getApps().length === 0` before `initializeApp` and wraps `initializeFirestore` in a try/catch (falling back to `getFirestore`). These guards must not be removed — they prevent double-init errors during hot module reload in development. Removing them broke the app when changes were deployed from the working tree without committing.
 
 ---
 
