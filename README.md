@@ -113,6 +113,7 @@ A React PWA for personal golf tracking with GPS shot mapping, scorekeeping, smar
 - GPS shot coordinate persistence — save lat/lng for each shot origin and landing; enables dispersion analysis and AI spatial context
 - SVG shot path visualization — render per-hole shot chains on a plain background; no Mapbox dependency, zero cost; depends on coordinate persistence above
 - Launch monitor data integration — import session CSV/JSON exports from consumer launch monitors (Garmin Approach R10, Rapsodo MLM2PRO, SkyTrak, etc.) to auto-populate club shot history; reduces manual entry for range sessions
+- **Scorecard photo upload** — take a picture of the physical scorecard before a round; auto-detect and fill in par and yardage per hole (OCR), removing manual entry at round start
 
 ### Phase 4 — Multi-round analytics
 - AI season/trend summary — analyze all completed rounds together for long-term patterns
